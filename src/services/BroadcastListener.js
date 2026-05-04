@@ -1,6 +1,6 @@
 const db = require('../config/database');
-const { normalizeRecipients } = require('./Whatsapp/utils/phoneNormalizer');
-const OneEngageService = require('./Whatsapp/OneEngage.service');
+const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
+const OneEngageService = require('./whatsapp/OneEngage.service');
 class BroadcastListener {
     
     /**
@@ -15,7 +15,8 @@ class BroadcastListener {
                 
                 const { 
                     integration, 
-                    template 
+                    template,
+                    broadcast 
                 } = await this.validateRequest(request, trx);
                 const phone = normalizeRecipients(request.recipient);
                 
@@ -56,10 +57,9 @@ class BroadcastListener {
                         header: header,
                         footer: footer,
                         button: button,
-                        description: request?.description,
-                        broadcast_name: request?.broadcast_name,
                         broadcast_id: request?.broadcast_id,
                         category: request?.template?.category,
+                        params: request?.params_data || [],
                     };
 
 
@@ -76,16 +76,17 @@ class BroadcastListener {
                         }
                     }
 
+                    let response = null;
                     try {
-                        const service = new OneEngageService();
+                        const service = new OneEngageService(integration);
                         await service.init();
-                        await service.sendHsm(phone, request, optional);
+                        response = await service.sendHsm(phone, request, optional);
                     } catch (error) {
                         console.error(`[Broadcast Listener] 1Engage failed:`, error.message);
                         throw error;
                     }
 
-                    return "tes";
+                    return response;
 
                 } else if (provider === 'damcorp') {
                     // Proses damcorp
@@ -124,7 +125,14 @@ class BroadcastListener {
             throw new Error('Template not found');
         }
 
-        return { integration, template };
+        const broadcast = await trx('omnichannel.broadcasts')
+            .where('id', request.broadcast_id)
+            .first();
+
+        if (!broadcast) {
+            throw new Error('Broadcast not found');
+        }
+        return { integration, template, broadcast};
     }
 }
 

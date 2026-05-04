@@ -14,8 +14,8 @@ const publish = async (req, res) => {
 
 const listen = async (req, res) => {
     const result = await BroadcastManager.listen(req.body);
-    const statusCode = result.status === 'error' ? 500 : 200;
-    return res.status(statusCode).json(result);
+    
+    return res.json(result);
 };
 
 module.exports = { publish, listen };

@@ -13,7 +13,7 @@ const getExternalApiWithEndpoints = async (filter, endpointFilter, trx = db) => 
     if (!api) return null;
 
     return await trx('omnichannel.external_api_endpoints')
-        .where({ external_api_id: api.id, ...endpointFilter });
+        .where({ external_api_id: api.id, ...endpointFilter }).first();
     
 };
 

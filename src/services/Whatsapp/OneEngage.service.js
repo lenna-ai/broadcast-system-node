@@ -3,16 +3,18 @@
 //
 const db = require('../../config/database');
 const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/ExternalApi.repositories');
-const { getMediaTypeFromUrl } = require('./utils/getMedia');
-
+const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/Broadcast.repositories');
+const { getContentProvider } = require('./utils/contentUtility');
+const DateTime = require('luxon').DateTime;
 
 
 class OneEngageService {
-    constructor() {
+    constructor(integration) {
         this.api = null;
         this.baseUri = null;
         this.db = db;
-
+        this.integration = integration;
+        this.broadcast = null;
     }
 
     async init() {
@@ -20,116 +22,109 @@ class OneEngageService {
         this.endpoint = await getExternalApiWithEndpoints({ category: 'channel', provider: '1engage' }, {name: 'v15-messages-send'}, this.db);
 
         let baseUri = this.api?.base_url;
-
         if (!baseUri) {
-            baseUri =
-                this.data?.integration?.integration_data?.baseUrl ||
-                this.data?.integration?.integration_data?.whatsappBaseUrl ||
-                '';
+            baseUri = this.integration?.integration_data?.baseUrl || '';
         }
-
         this.baseUri = baseUri;
     }
 
     async sendHsm(phone, request, optional) {
         if (!this.endpoint) {
-            throw new Error('Endpoint not defined');
+            throw new Error('Api is not defined');
         }
 
-        const params = [];
-        if (request.params_data && request.params_data.length > 0) {
-            // each request.params_data
-            let bodyParams = [];
-            request.params_data.forEach((item) => {
-                bodyParams.push({ type: 'text', text: item });
-            });
-            console.log('bodyParams', bodyParams);
-            params.push({type: 'body', parameters: bodyParams });
-        }
-
-        
-
-        // header text
-        console.log('optional', optional.header);
-        if (optional?.header && Object.keys(optional.header).length > 0) {
-            const header = optional.header;
-            const headerType = header.headerType || null;
-
-            let headerParameter = null;
-
-            if (headerType === 'text' && header.textHeader) {
-                headerParameter = {
-                    type: 'text',
-                    text: header.textHeader
-                };
-
-            } else if (
-                ['media', 'image', 'video', 'document'].includes(headerType) &&
-                header.mediaUrl
-            ) {
-                const mediaType =
-                    header.mediaType ||
-                    getMediaTypeFromUrl(header.mediaUrl) ||
-                    'image';
-                const mediaPayload = {
-                    link: header.mediaUrl
-                };
-                if (mediaType === 'document' && header.mediaName) {
-                    mediaPayload.filename = header.mediaName;
-                }
-                headerParameter = {
-                    type: mediaType,
-                    [mediaType]: mediaPayload
-                };
+        const params = getContentProvider('1engage', optional);
+        const baseRequestData = {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            type: 'template',
+            template: {
+                name: request.template.template_name,
+                language: { code: request.template.language || 'id' },
+                components: params
             }
+        };
 
-            if (headerParameter) {
-                params.push({
-                    type: 'header',
-                    parameters: [headerParameter]
-                });
-            }
-        }
+        const baseUri = this.baseUri;
+        const requestEndpoint = baseUri + (this.endpoint?.endpoint || '').replace(
+            '{phone_number_id}',
+            this.integration?.integration_data?.clientId || ''
+        );
 
-        const button = request.template?.button || null;
-        if (button && button.buttonType === 'call-to-action' && !isEmpty(optional['button_params'])) {
-            const callToActionButton = button['callToAction'] || [];
-            const buttonParams = optional['button_params'] || [];
+        const authHeader = this.getAuthHeader(this.integration?.integration_data || []);
+        const payload = {...baseRequestData, to: phone};
 
-            let paramIndex = 0;
-            callToActionButton.forEach((item, index) => {
-                if (item.urlType === 'dynamic' && buttonParams[paramIndex]) {
-                    params.push({
-                        type: 'button',
-                        sub_type: 'url',
-                        index: index.toString(),
-                        parameters: [{
-                            type: 'text',
-                            text: buttonParams[paramIndex]
-                        }]
-                    });
-                    paramIndex++;
-                }
+        // =====================================================================
+        // Send Request
+        // =====================================================================
+        let response = null;
+        // let response = {
+        //     "messaging_product": "whatsapp",
+        //     "contacts": [
+        //         {
+        //             "input": "62881082494799",
+        //             "wa_id": "62881082494799"
+        //         }
+        //     ],
+        //     "messages": [
+        //         {
+        //             "id": "wamid.HBgONjI4ODEwODI0OTQ3OTkVAgARGBI3MTVGMEUyNUU4NEFFNEQxOUQA",
+        //             "message_status": "accepted"
+        //         }
+        //     ]
+        // }
+        try {
+            response = await sendBroadcast(this.endpoint?.method, requestEndpoint, {
+                headers: authHeader,
+                json: payload,
+                responseType: 'json'
             });
+        } catch (error) {
+            // API LOG
+            console.error("Failed to send broadcast:", error.response?.body || error.message);
+            // throw error; 
         }
+
+        let status = null;
+        let messageId = null;
+        let waId = null;
+
+        // SET DEFAULT DATA
+        if (response && response?.messages?.[0]?.id) {
+            status = 'sent';
+            messageId = response['messages'][0]['id'];
+            waId = response['contacts'][0]['wa_id'];
+        } else {
+            status = 'failed';
+            messageId = null;
+            waId = null;
+        }
+
+        const resData = {
+            'to': phone,
+            'msgId': messageId,
+            'status': status,
+            'trxId': waId,
+            'timestamp': DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')
+        }
+
+        // save broadcast message
+        await saveBroadcastMessage(request, this.integration, resData, payload);
+        // add api log
         
-        if (
-            optional?.category &&
-            optional.category.toLowerCase() === 'authentication' &&
-            params?.[0] !== undefined
-        ) {
-            params.push({
-                type: 'button',
-                sub_type: 'url',
-                index: '0',
-                parameters: [
-                    {
-                        type: 'text',
-                        text: String(params[0])
-                    }
-                ]
-            });
+        return resData;
+    }
+
+    // =====================================================================
+    // Get Auth Header
+    // =====================================================================
+    getAuthHeader(integration_data = []) {
+        const token = integration_data.token ?? null;
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
         }
+        return headers;
     }
 }
 
