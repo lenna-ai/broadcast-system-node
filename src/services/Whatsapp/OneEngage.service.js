@@ -47,6 +47,8 @@ class OneEngageService {
             params.push({type: 'body', parameters: bodyParams });
         }
 
+        
+
         // header text
         console.log('optional', optional.header);
         if (optional?.header && Object.keys(optional.header).length > 0) {
