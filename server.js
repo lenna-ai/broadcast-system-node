@@ -19,7 +19,7 @@ const startServer = async () => {
             console.log(`🚀 API Server running on port ${PORT}`);
         });
     } catch (error) {
-        console.error('❌ Gagal menjalankan server:', error.message);
+        console.error('❌ Failed to start server:', error.message);
         process.exit(1);
     }
 };

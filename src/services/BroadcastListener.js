@@ -1,6 +1,8 @@
 const db = require('../config/database');
 const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
 const OneEngageService = require('./whatsapp/OneEngage.service');
+const DamcorpService = require('./whatsapp/Damcorp.service');
+
 class BroadcastListener {
     
     /**
@@ -28,41 +30,40 @@ class BroadcastListener {
                     ? JSON.parse(integration.integration_data) 
                     : (integration.integration_data || {});
 
-                provider = integrationData.apiService || provider;
-
-                if (provider === '1engage') {
-                    if (request.template?.header) {
-                        const headerData = typeof request.template.header === 'string' ? JSON.parse(request.template.header) : request.template.header;
-                        let textHeaderToSend = headerData.textHeader || null;
-                        const hsmTemplate = request.broadcast?.hsmTemplate;
-                        
-                        if (hsmTemplate?.header?.headerType === 'text') {
-                            const templateText = hsmTemplate.header.textHeader || '';
-                            if (!templateText.includes('{{')) {
-                                textHeaderToSend = null;
-                            }
+                if (request.template?.header) {
+                    const headerData = typeof request.template.header === 'string' ? JSON.parse(request.template.header) : request.template.header;
+                    let textHeaderToSend = headerData.textHeader || null;
+                    const hsmTemplate = request.broadcast?.hsmTemplate;
+                    
+                    if (hsmTemplate?.header?.headerType === 'text') {
+                        const templateText = hsmTemplate.header.textHeader || '';
+                        if (!templateText.includes('{{')) {
+                            textHeaderToSend = null;
                         }
-                        header = {
-                            headerType: headerData.headerType || null,
-                            mediaUrl: headerData.mediaUrl || null,
-                            mediaName: headerData.mediaName || null,
-                            textHeader: textHeaderToSend,
-                        };
                     }
-
-                    footer = request.template.footer ? (typeof request.template.footer === 'string' ? JSON.parse(request.template.footer) : request.template.footer) : null;
-                    button = request.template.button ? (typeof request.template.button === 'string' ? JSON.parse(request.template.button) : request.template.button) : null;
-
-                    const optional = {
-                        header: header,
-                        footer: footer,
-                        button: button,
-                        broadcast_id: request?.broadcast_id,
-                        category: request?.template?.category,
-                        params: request?.params_data || [],
+                    header = {
+                        headerType: headerData.headerType || null,
+                        mediaUrl: headerData.mediaUrl || null,
+                        mediaName: headerData.mediaName || null,
+                        textHeader: textHeaderToSend,
                     };
+                }
 
+                footer = request.template.footer ? (typeof request.template.footer === 'string' ? JSON.parse(request.template.footer) : request.template.footer) : null;
+                button = request.template.button ? (typeof request.template.button === 'string' ? JSON.parse(request.template.button) : request.template.button) : null;
 
+                const optional = {
+                    header: header,
+                    footer: footer,
+                    button: button,
+                    broadcast_id: request?.broadcast_id,
+                    category: request?.template?.category,
+                    params: request?.params_data || [],
+                };
+
+                provider = integrationData.apiService || provider;
+                let response = null;
+                if (provider === '1engage') {
                     // Parsing components untuk Whatsapp Carousel
                     if (request.components) {
                         const componentsData = typeof request.components === 'string' ? JSON.parse(request.components) : request.components;
@@ -76,7 +77,6 @@ class BroadcastListener {
                         }
                     }
 
-                    let response = null;
                     try {
                         const service = new OneEngageService(integration);
                         await service.init();
@@ -90,7 +90,17 @@ class BroadcastListener {
 
                 } else if (provider === 'damcorp') {
                     // Proses damcorp
-                    return { status: 'damcorp_processed' };
+                    try {
+                        const service = new DamcorpService(integration);
+                        await service.init();
+                        response = await service.handle(phone, request, optional);
+
+                        return response;
+                    } catch (error) {
+                        console.error(`[Broadcast Listener] Damcorp failed:`, error.message);
+                        throw error;
+                    }
+                    return response;
                 } else if (provider === 'wappin') {
                     // Proses wappin
                     return { status: 'wappin_processed' };
