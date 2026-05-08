@@ -1,11 +1,12 @@
-const { connectRabbitMQ, getChannel, url, queues } = require('../config/rabbitmq');
+const { connectRabbitMQ, getChannel } = require('../config/rabbitmq');
+const CONSTANTS = require('../config/constants'); // Sesuaikan path
 
 class RabbitMQManager {
   async connect() {
     return connectRabbitMQ();
   }
 
-  async sendToQueue(queueName, message) {
+  async publishToQueue(queueName, message) {
     const channel = getChannel();
     
     return channel.sendToQueue(
@@ -15,22 +16,38 @@ class RabbitMQManager {
     );
   }
 
-  async consume(queueName, callback) {
+  async consumer(queueName, callback, prefetchCount = 5) {
     const channel = getChannel();
+    channel.prefetch(prefetchCount);
 
-    console.log(`[*] Menunggu pesan di queue: ${queueName}`);
+    console.log(`[*] Waiting messages in queue: ${queueName} (Prefetch: ${prefetchCount})`);
     
     return channel.consume(queueName, async (msg) => {
       if (msg !== null) {
-        const content = JSON.parse(msg.content.toString());
         try {
+          const content = JSON.parse(msg.content.toString());
           await callback(content);
+
           channel.ack(msg);
+          
         } catch (error) {
           console.error(`Error processing message from ${queueName}:`, error.message);
-          // Requeue message if error
-          channel.nack(msg);
+          
+          channel.nack(msg, false, false);
         }
+      }
+    });
+  }
+
+  async failedConsumer(queueName, callback) {
+    const channel = getChannel();
+    channel.prefetch(1);
+
+    return channel.consume(queueName, async (msg) => {
+      if (msg !== null) {
+        const content = JSON.parse(msg.content.toString());
+        await callback(content);
+        channel.ack(msg);
       }
     });
   }

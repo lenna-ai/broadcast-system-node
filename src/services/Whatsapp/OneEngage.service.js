@@ -90,6 +90,8 @@ class OneEngageService {
                 number: phone,
                 url: requestEndpoint,
             });
+
+            throw error;
         }
 
         let status = null;
@@ -116,7 +118,7 @@ class OneEngageService {
         }
 
         // save broadcast message
-        await saveBroadcastMessage(request, this.integration, resData, payload);
+        await saveBroadcastMessage(request, resData, payload);
         // add api log
         
         return resData;

@@ -18,7 +18,7 @@ export const sendBroadcast = async (method, endpoint, options) => {
     }
 };
 
-export const saveBroadcastMessage = async (request, integration, resData, payload) => {
+export const saveBroadcastMessage = async (request, resData, payload) => {
     const trx = await db.transaction();
     const insertData = {
         channel_id: 4,
@@ -26,8 +26,8 @@ export const saveBroadcastMessage = async (request, integration, resData, payloa
         category: 'hsm',
         client: 'whatsapp',
         topics: request.template.template_name,
-        app_id: integration.app_id,
-        integration_id: integration.id,
+        app_id: request.app_id,
+        integration_id: request.integration_id,
         status: resData.status,
         number: resData.to,
         data: JSON.stringify(resData),
@@ -37,7 +37,7 @@ export const saveBroadcastMessage = async (request, integration, resData, payloa
         schedule_at: request.schedule_at || DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
         created_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
         updated_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
-        broadcast_id: request.broadcast_id || null
+        broadcast_id: request.broadcast_id || null,
     };  
     await trx('omnichannel.broadcast_messages').insert(insertData);
     await trx.commit();

@@ -198,9 +198,7 @@ const damcorpContent = (optional) => {
 
     const body = setDynamicParams(optional);
     content.push(body);
-
     const header = optional['header'] || null;
-    console.log("header", header);
     const headerType = header?.headerType || null;
     let headerContent = null;
     if (optional && optional['carousel_cards'] && Array.isArray(optional['carousel_cards'])) {
@@ -247,7 +245,7 @@ const damcorpContent = (optional) => {
     }
 
     const button = optional['button'] || null;
-    if (button && button.buttonType === 'call-to-action' && !isEmpty(optional['button_params'])) {
+    if (button && button.buttonType === 'call-to-action' && optional['button_params'] && optional['button_params'].length) {
         const callToActionButton = button['callToAction'] || [];
         const buttonParams = optional['button_params'] || [];
 

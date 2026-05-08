@@ -38,7 +38,7 @@ class DamcorpService {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             type: 'template',
-            // to: phone,
+            to: phone,
             template: {
                 name: request.template?.template_name,
                 language: {
@@ -73,10 +73,13 @@ class DamcorpService {
                 number: phone,
                 url: url,
             });
+
+            throw error;
         }
 
         let status = null;
         let messageId = null;
+        let message = 'null';
         let waId = null;
 
         // SET DEFAULT DATA
@@ -84,6 +87,29 @@ class DamcorpService {
             status = 'sent';
             messageId = response['messages'][0]['id'];
             waId = response['contacts'][0]['wa_id'];
+            // {
+            //     "to": "62881081494799",
+            //     "msgId": "HBgONjI4ODEwODE0OTQ3OTkVAgARGBJDMkMyNkZCRTI2RDQ2NDhDNEEA",
+            //     "status": "failed",
+            //     "trxId": "62881081494799",
+            //     "timestamp": "2026-05-07 17:45:31",
+            //     "error_msg": [
+            //         {
+            //         "code": 131026,
+            //         "title": "Message undeliverable",
+            //         "message": "Message undeliverable",
+            //         "error_data": {
+            //             "details": "Message Undeliverable."
+            //         }
+            //         }
+            //     ]
+            // }
+            // handle error message
+            if (response?.error_msg?.length > 0) {
+                // get message
+                message = response?.error_msg?.[0]?.message || '';
+                
+            }
         } else {
             status = 'failed';
             messageId = null;
@@ -95,11 +121,11 @@ class DamcorpService {
             'msgId': messageId,
             'status': status,
             'trxId': waId,
-            'timestamp': DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')
+            'timestamp': DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
+            'message': message
         }
 
-
-        await saveBroadcastMessage(request, this.integration, resData, payload);
+        await saveBroadcastMessage(request, resData, payload);
         return resData;
     }
 

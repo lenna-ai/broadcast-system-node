@@ -2,6 +2,7 @@ const db = require('../config/database');
 const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
 const OneEngageService = require('./whatsapp/OneEngage.service');
 const DamcorpService = require('./whatsapp/Damcorp.service');
+const { saveBroadcastMessage } = require('../repositories/Broadcast.repositories');
 
 class BroadcastListener {
     
@@ -9,7 +10,7 @@ class BroadcastListener {
      * @param {Object} request
      * @param {Array} data
      */
-    static async listen(request, data) {
+    static async listen(request) {
         // construct processData
         return await db.transaction(async (trx) => {
             try {
@@ -115,6 +116,29 @@ class BroadcastListener {
             }
         }); 
         // End of transaction
+    }
+
+    static async failed(request) {
+
+        const data = request.data || [];
+        const errorReason = request.error_reason || null;
+        const failedAt = request.failed_at || new Date().toISOString();
+        let resData = {
+            'to': data.recipient,
+            'status': 'failed',
+            'msgId': null,
+            'trxId': null,
+            'message': errorReason,
+            'timestamp': failedAt,
+        }
+
+        await saveBroadcastMessage(
+            data,
+            resData,
+            []
+        );
+
+        console.log("Failed message executed:", resData);
     }
 
     static async validateRequest(request, trx) {
