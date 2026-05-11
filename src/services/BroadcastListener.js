@@ -3,6 +3,8 @@ const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
 const OneEngageService = require('./whatsapp/OneEngage.service');
 const DamcorpService = require('./whatsapp/Damcorp.service');
 const { saveBroadcastMessage } = require('../repositories/Broadcast.repositories');
+//HELPERS RESPONSE
+
 
 class BroadcastListener {
     
@@ -82,12 +84,12 @@ class BroadcastListener {
                         const service = new OneEngageService(integration);
                         await service.init();
                         response = await service.sendHsm(phone, request, optional);
+
+                        return response;
                     } catch (error) {
                         console.error(`[Broadcast Listener] 1Engage failed:`, error.message);
                         throw error;
                     }
-
-                    return response;
 
                 } else if (provider === 'damcorp') {
                     // Proses damcorp
@@ -101,7 +103,6 @@ class BroadcastListener {
                         console.error(`[Broadcast Listener] Damcorp failed:`, error.message);
                         throw error;
                     }
-                    return response;
                 } else if (provider === 'wappin') {
                     // Proses wappin
                     return { status: 'wappin_processed' };

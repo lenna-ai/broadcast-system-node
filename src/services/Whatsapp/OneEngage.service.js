@@ -57,22 +57,22 @@ class OneEngageService {
         // =====================================================================
         // Send Request
         // =====================================================================
-        // let response = null;
-        let response = {
-            "messaging_product": "whatsapp",
-            "contacts": [
-                {
-                    "input": "62881082494799",
-                    "wa_id": "62881082494799"
-                }
-            ],
-            "messages": [
-                {
-                    "id": "wamid.HBgONjI4ODEwODI0OTQ3OTkVAgARGBI3MTVGMEUyNUU4NEFFNEQxOUQA",
-                    "message_status": "accepted"
-                }
-            ]
-        }
+        let response = null;
+        // let response = {
+        //     "messaging_product": "whatsapp",
+        //     "contacts": [
+        //         {
+        //             "input": "62881082494799",
+        //             "wa_id": "62881082494799"
+        //         }
+        //     ],
+        //     "messages": [
+        //         {
+        //             "id": "wamid.HBgONjI4ODEwODI0OTQ3OTkVAgARGBI3MTVGMEUyNUU4NEFFNEQxOUQA",
+        //             "message_status": "accepted"
+        //         }
+        //     ]
+        // }
         try {
             response = await sendBroadcast(this.endpoint?.method, requestEndpoint, {
                 headers: authHeader,
