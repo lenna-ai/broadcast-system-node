@@ -14,6 +14,7 @@ const setDynamicParams = (optional) => {
 
         body.parameters = bodyParams;
     }
+    console.log("pararms data ", params);
     return body;
 }
 const getContentProvider = (type, optional) => {
@@ -152,7 +153,7 @@ const oneEngageContent = (optional) => {
 
     // SET BUTTONS
     const button = optional['button'] || null;
-    if (button && button.buttonType === 'call-to-action' && !isEmpty(optional['button_params'])) {
+    if (button && button.buttonType === 'call-to-action' && optional['button_params'] && optional['button_params'].length) {
         const callToActionButton = button['callToAction'] || [];
         const buttonParams = optional['button_params'] || [];
 
