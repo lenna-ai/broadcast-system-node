@@ -97,7 +97,6 @@ class BroadcastListener {
                         const service = new DamcorpService(integration);
                         await service.init();
                         response = await service.handle(phone, request, optional);
-
                         return response;
                     } catch (error) {
                         console.error(`[Broadcast Listener] Damcorp failed:`, error.message);

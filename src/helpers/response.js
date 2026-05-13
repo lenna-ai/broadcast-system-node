@@ -1,25 +1,20 @@
 
-const successResponse = (res, message, data = {}, statusCode = 200) => {
+const successResponse = (res, message, data = null, statusCode = 200) => {
     return res.status(statusCode).json({
         success: true,
-        message,
-        data,
+        message: message,
+        data: data,
         meta: { timestamp: new Date().toISOString() }
     });
 };
 
 const errorResponse = (res, message, errors = null, statusCode = 400) => {
-    const response = {
+    return res.status(statusCode).json({
         success: false,
-        message,
+        message: message,
+        errors: errors,
         meta: { timestamp: new Date().toISOString() }
-    };
-
-    if (errors) {
-        response.errors = errors;
-    }
-
-    return res.status(statusCode).json(response);
+    });
 };
 
 module.exports = { successResponse, errorResponse };

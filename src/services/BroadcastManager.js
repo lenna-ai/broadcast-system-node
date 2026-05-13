@@ -30,7 +30,7 @@ class BroadcastManager {
             return { status: 'success', message: `Broadcast ${type} berhasil dikirim ke antrean` };
         } catch (error) {
             console.error('BroadcastManager Publish Error:', error.message);
-            return { status: 'error', message: error.message };
+            throw error;
         }
     }
 
@@ -41,19 +41,20 @@ class BroadcastManager {
             }
 
             const result = await BroadcastListener.listen(request, request.data || []);
-            return { status: 'success', ...result };
+            return result;
         } catch (error) {
             console.error('BroadcastManager Listen Error:', error.message);
-            return { status: 'error', message: error.message };
+            throw error;
         }
     }
 
     static async failed(request) {
         try {
             const result = await BroadcastListener.failed(request, request.data || []);
-            return { status: 'success', ...result };
+            return result;
         } catch (error) {
             console.error('BroadcastManager Failed Error:', error.message);
+            throw error;
         }
     }
 }

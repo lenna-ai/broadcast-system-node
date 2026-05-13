@@ -15,9 +15,13 @@ const publish = async (req, res) => {
 };
 
 const listen = async (req, res) => {
-    const response = await BroadcastManager.listen(req.body);
+    try {
+        const response = await BroadcastManager.listen(req.body);
 
-    return successResponse(response, 'The message was successfully processed');
+        return successResponse(res, 'The message was successfully processed', response);
+    } catch (error) {
+        return errorResponse(res, error.message, error.errors, 500);
+    }
 };
 
 module.exports = { publish, listen };
