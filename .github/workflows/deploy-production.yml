@@ -1,0 +1,52 @@
+name: Build and Deploy Production
+
+on:
+  push:
+    branches:
+      - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PREFIX: production
+  DEPLOY_URL: https://dokploy.lenna.ai/api/deploy/compose/xRTbHMY0AZnwV09tcT3ck
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ env.PREFIX }}-${{ github.sha }}
+            type=raw,value=${{ env.PREFIX }}-latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger Deployment Webhook
+        run: |
+          echo "Triggering deployment for ${{ env.PREFIX }} environment..."
+          curl -X POST ${{ env.DEPLOY_URL }}
