@@ -38,7 +38,7 @@ class DamcorpService {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             type: 'template',
-            to: phone,
+            // to: phone,
             template: {
                 name: request.template?.template_name,
                 language: {
