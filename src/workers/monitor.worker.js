@@ -33,7 +33,7 @@ pm2.connect((err) => {
       const status = data.event;
 
       if (appName === 'pm2-email-monitor') return; 
-      if (status === 'exit' || status === 'stop') {
+      if (status === 'exit') {
         const restartCount = data.process.pm2_env ? data.process.pm2_env.restart_time : 0;
         
         const now = Date.now();
@@ -43,12 +43,12 @@ pm2.connect((err) => {
 
         alertCooldowns[appName] = now;
 
-        console.log(`[ALERT] Application ${appName} has CRASHED/EXIT (Total Restarts: ${restartCount})`);
+        console.log(`[ALERT] Application ${appName} in ${process.env.APP_ENV || 'development'} has CRASHED/EXIT (Total Restarts: ${restartCount})`);
         sendEmailAlert(appName, `exit (Crashed/stopped automatically after ${restartCount} restarts)`);
       }
       
       if (status === 'stop') {
-        console.log(`[INFO] Application ${appName} was manually stopped by an administrator.`);
+        console.log(`[INFO] Application ${appName} in ${process.env.APP_ENV || 'development'} was manually stopped by an administrator.`);
         sendEmailAlert(appName, 'stopped manually by administrator');
       }
     });
@@ -56,9 +56,10 @@ pm2.connect((err) => {
 });
 
 function sendEmailAlert(appName, status) {
+  const recipients = ['dimas@lenna.ai', 'ryanzulham@lenna.ai', 'operation@lenna.ai'];
   const mailOptions = {
     from: '"PM2 Monitor" <mailer@lenna.ai>',
-    to: 'dimas@lenna.ai',
+    to: recipients.join(','),
     subject: `🚨 ALERT: Application ${appName} IS DOWN!`,
     text: `The PM2 process for application "${appName}" detected the following status: ${status} at ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}. Please check the server immediately.`
   };
