@@ -21,7 +21,7 @@ module.exports = {
       name: "failed-queue-worker",
       script: "./src/workers/failed.worker.js", // Merujuk ke baris 7 di image_4770c0.png
       instances: 1, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
-      exec_mode: "cluster",
+      exec_mode: "fork",
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
@@ -34,6 +34,20 @@ module.exports = {
         DOTENV_CONFIG_PATH: "./.env"
       }
     },
+    {
+      name: "pm2-email-monitor",   
+      script: "./src/workers/monitor.worker.js",      // Jalur ke skrip monitor yang dibuat sebelumnya
+      instances: 1,                
+      exec_mode: "fork",
+      autorestart: true,           
+      watch: false,                
+      env: {
+        NODE_ENV: "development"
+      },
+      env_production: {
+        NODE_ENV: "production"
+      }
+    }
     // {
     //   name: "broadcast-server",
     //   script: "./server.js", // Merujuk ke baris 7 di image_4770c0.png
