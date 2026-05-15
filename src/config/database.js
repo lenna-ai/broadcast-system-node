@@ -17,7 +17,7 @@ db.raw('SELECT 1')
         console.log('📦 DB Connected');
     })
     .catch((err) => {
-        console.log(process.env.DB_HOST, process.env.DB_PORT, process.env.DB_USERNAME, process.env.DB_PASSWORD, process.env.DB_DATABASE);
+        console.log(process.env.DB_HOST, process.env.DB_USERNAME, process.env.DB_DATABASE);
         console.error('Failed to connect to database:', err.message);
         process.exit(1); 
     });

@@ -16,7 +16,7 @@ class RabbitMQManager {
     );
   }
 
-  async consumer(queueName, callback, prefetchCount = 5) {
+  async consumer(queueName, callback, prefetchCount = 20) {
     const channel = getChannel();
     channel.prefetch(prefetchCount);
 
