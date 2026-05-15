@@ -41,6 +41,7 @@ class RabbitMQManager {
 
   async failedConsumer(queueName, callback) {
     const channel = getChannel();
+    console.log(`[*] Waiting failed messages in queue: ${queueName} (Prefetch: ${1})`);
     channel.prefetch(1);
 
     return channel.consume(queueName, async (msg) => {
