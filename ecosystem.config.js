@@ -20,8 +20,8 @@ module.exports = {
     {
       name: "failed-queue-worker",
       script: "./src/workers/failed.worker.js", // Merujuk ke baris 7 di image_4770c0.png
-      instances: 1, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
-      exec_mode: "fork",
+      instances: 2, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
+      exec_mode: "cluster",
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',

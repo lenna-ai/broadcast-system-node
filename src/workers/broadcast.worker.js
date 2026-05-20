@@ -1,7 +1,7 @@
 const RabbitMQManager = require('../queue/rabbitmq.manager');
 const CONSTANTS = require('../config/constants');
 const BroadcastListener = require('../services/BroadcastListener');
-
+const { setTimeout: sleep } = require('timers/promises');
 const startWorker = async () => {
     await RabbitMQManager.connect();
     RabbitMQManager.consumer(CONSTANTS.RABBITMQ.QUEUES.WHATSAPP, async (batchData) => {
@@ -11,6 +11,7 @@ const startWorker = async () => {
         await Promise.all(batchData.map(async (item) => {
             try {
                 await BroadcastListener.listen(item);
+                await sleep(50);
             } catch (error) {
                 failedItems.push({
                     data: item,
@@ -19,20 +20,26 @@ const startWorker = async () => {
                 });
             }
         }));
+        // for (const [index, item] of batchData.entries()) {
+        //     try {
+        //         // 1. Kirim API satu per satu
+        //         await BroadcastListener.listen(item);
+        //         await sleep(50); 
+                
+        //     } catch (error) {
+        //         failedItems.push({
+        //             data: item,
+        //             error_reason: error.message,
+        //             failed_at: new Date().toISOString()
+        //         });
+        //     }
+        // }
 
         if (failedItems.length > 0) {
             // PUBLISH TO FAILED_QUEUE
             await RabbitMQManager.publishToQueue(CONSTANTS.RABBITMQ.QUEUES.FAILED_QUEUE, failedItems);
         }
     });
-
-    RabbitMQManager.failedConsumer(CONSTANTS.RABBITMQ.QUEUES.FAILED_QUEUE, async (data) => {
-
-        console.log(`Received failed batch ${data.length} data...`);
-        await Promise.all(data.map(async (item) => {
-            await BroadcastListener.failed(item);
-        }));
-    })
 };
 
 startWorker();
