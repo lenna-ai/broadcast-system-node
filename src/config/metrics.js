@@ -19,7 +19,7 @@ app.get('/metrics', async (req, res) => {
   res.end(await client.register.metrics());
 });
 
-app.listen(9100, () => {
+app.listen(3000, () => {
   console.log('Metrics server listening on port 9100');
 });
 
