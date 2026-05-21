@@ -12,14 +12,16 @@ const db = knex({
     pool: { min: 2, max: 10 }
 });
 
-db.raw('SELECT 1')
-    .then(() => {
-        console.log('📦 DB Connected');
-    })
-    .catch((err) => {
-        console.log(process.env.DB_HOST, process.env.DB_USERNAME, process.env.DB_DATABASE);
-        console.error('Failed to connect to database:', err.message);
-        process.exit(1); 
-    });
+if (process.env.NODE_ENV !== 'test') {
+    db.raw('SELECT 1')
+        .then(() => {
+            console.log('📦 DB Connected');
+        })
+        .catch((err) => {
+            console.log(process.env.DB_HOST, process.env.DB_USERNAME, process.env.DB_DATABASE);
+            console.error('Failed to connect to database:', err.message);
+            process.exit(1); 
+        });
+}
 
 module.exports = db;
