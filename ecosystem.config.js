@@ -1,7 +1,7 @@
 module.exports = {
   apps : [
     {
-      name: "broadcast-queue-worker",
+      name: "broadcast|queue",
       script: "./src/workers/broadcast.worker.js", // Merujuk ke baris 7 di image_4770c0.png
       instances: 3, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
       exec_mode: "cluster",
@@ -18,7 +18,7 @@ module.exports = {
       }
     },
     {
-      name: "failed-queue-worker",
+      name: "broadcast|failed-queue",
       script: "./src/workers/failed.worker.js", // Merujuk ke baris 7 di image_4770c0.png
       instances: 2, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
       exec_mode: "cluster",
@@ -35,7 +35,7 @@ module.exports = {
       }
     },
     {
-      name: "pm2-email-monitor",   
+      name: "broadcast|monitor",   
       script: "./src/workers/monitor.worker.js",      // Jalur ke skrip monitor yang dibuat sebelumnya
       instances: 1,                
       exec_mode: "fork",
@@ -49,7 +49,7 @@ module.exports = {
       }
     },
     {
-      name: "broadcast-server",
+      name: "broadcast|server",
       script: "./server.js", // Merujuk ke baris 7 di image_4770c0.png
       instances: 1, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
       exec_mode: "fork",

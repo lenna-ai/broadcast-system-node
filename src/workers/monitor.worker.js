@@ -56,9 +56,15 @@ pm2.connect((err) => {
 });
 
 function sendEmailAlert(appName, status) {
-  const recipients = ['dimas@lenna.ai', 'ryanzulham@lenna.ai', 'operation@lenna.ai'];
+  const recipients = [
+    'dimas@lenna.ai', 
+    'ryanzulham@lenna.ai', 
+    'annisa@lenna.ai', 
+    'fachry@lenna.ai', 
+    'operation@lenna.ai'
+  ];
   const mailOptions = {
-    from: '"PM2 Monitor" <mailer@lenna.ai>',
+    from: '"Broadcast Monitor" <mailer@lenna.ai>',
     to: recipients.join(','),
     subject: `🚨 ALERT: Application ${appName} IS DOWN!`,
     text: `The PM2 process for application "${appName}" detected the following status: ${status} at ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}. Please check the server immediately.`
