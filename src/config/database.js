@@ -1,5 +1,13 @@
 require('dotenv').config();
 const knex = require('knex');
+
+const poolConfig = {
+    min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
+    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    acquireTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE_TIMEOUT, 10) || 30000,
+    idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT, 10) || 30000,
+};
+
 const db = knex({
     client: 'pg',
     connection: {
@@ -9,7 +17,7 @@ const db = knex({
         password: process.env.DB_PASSWORD,
         database: process.env.DB_DATABASE,
     },
-    pool: { min: 2, max: 10 }
+    pool: poolConfig,
 });
 
 if (process.env.NODE_ENV !== 'test') {
@@ -24,4 +32,19 @@ if (process.env.NODE_ENV !== 'test') {
         });
 }
 
+const getPoolStats = () => {
+    const pool = db.client.pool;
+    return {
+        used: pool.numUsed(),
+        free: pool.numFree(),
+        pending_acquires: pool.numPendingAcquires(),
+        pending_creates: pool.numPendingCreates(),
+        total: pool.numUsed() + pool.numFree(),
+        max: poolConfig.max,
+        min: poolConfig.min,
+    };
+};
+
 module.exports = db;
+module.exports.poolConfig = poolConfig;
+module.exports.getPoolStats = getPoolStats;

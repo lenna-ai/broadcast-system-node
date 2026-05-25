@@ -17,15 +17,16 @@ class DamcorpService {
         this.db = db;
     }
 
-    async init() {
-        this.api = await getExternalApi({category: 'channel', provider: 'damcorp-v2-waba'});
-        this.sendMessageApiUrl = await getExternalApiWithEndpoints({category: 'channel', provider: 'damcorp-v2-waba'}, {name: 'send-message'}, this.db);
-        this.getTokenApiUrl = await getExternalApiWithEndpoints({category: 'channel', provider: 'damcorp-v2-waba'}, {name: 'get-token'}, this.db);
+    async init(trx = this.db) {
+        this.api = await getExternalApi({ category: 'channel', provider: 'damcorp-v2-waba' }, trx);
+        this.sendMessageApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'send-message' }, trx);
+        this.getTokenApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'get-token' }, trx);
         this.baseUri = this.api?.base_url || '';
         // Implement initialization logic here
     }
 
-    async handle(phone, request, optional) {
+    async handle(phone, request, optional, trx = this.db) {
+        this.trx = trx;
         // CHECK API TOKEN
         try {
             this.integration = await this.apiToken(this.integration);
@@ -72,7 +73,7 @@ class DamcorpService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: url,
-            });
+            }, trx);
 
             throw error;
         }
@@ -107,7 +108,7 @@ class DamcorpService {
             'message': message
         }
 
-        await saveBroadcastMessage(request, resData, payload);
+        await saveBroadcastMessage(request, resData, payload, trx);
         return resData;
     }
 
@@ -166,7 +167,8 @@ class DamcorpService {
         data.tokenAPIExpired = response.users[0].expires_after;
         integration.integration_data = data;
 
-        await this.db('omnichannel.integrations')
+        const query = this.trx || this.db;
+        await query('omnichannel.integrations')
             .where({ id: integration.id })
             .update({
                 integration_data: JSON.stringify(data)

@@ -82,8 +82,8 @@ class BroadcastListener {
 
                     try {
                         const service = new OneEngageService(integration);
-                        await service.init();
-                        response = await service.sendHsm(phone, request, optional);
+                        await service.init(trx);
+                        response = await service.sendHsm(phone, request, optional, trx);
 
                         return response;
                     } catch (error) {
@@ -95,8 +95,8 @@ class BroadcastListener {
                     // Proses damcorp
                     try {
                         const service = new DamcorpService(integration);
-                        await service.init();
-                        response = await service.handle(phone, request, optional);
+                        await service.init(trx);
+                        response = await service.handle(phone, request, optional, trx);
                         return response;
                     } catch (error) {
                         console.error(`[Broadcast Listener] Damcorp failed:`, error.message);

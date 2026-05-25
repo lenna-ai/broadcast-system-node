@@ -1,18 +1,12 @@
 const db = require('../config/database');
+const { getPoolStats } = require('../config/database');
 const { successResponse, errorResponse } = require('../helpers/response');
 const os = require('os');
 
 const getSystemMetrics = async (req, res) => {
     try {
         // DB Metrics
-        const pool = db.client.pool;
-        const dbStatus = {
-            used: pool.numUsed(),
-            free: pool.numFree(),
-            pending_acquires: pool.numPendingAcquires(),
-            pending_creates: pool.numPendingCreates(),
-            total: pool.numUsed() + pool.numFree()
-        };
+        const dbStatus = getPoolStats();
 
         // CPU & Memory Metrics
         const memoryUsage = process.memoryUsage();

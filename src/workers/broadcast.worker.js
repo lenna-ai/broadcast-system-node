@@ -1,18 +1,25 @@
 const RabbitMQManager = require('../queue/rabbitmq.manager');
 const CONSTANTS = require('../config/constants');
 const BroadcastListener = require('../services/BroadcastListener');
-const { broadcastCounter } = require('../config/metrics'); // Import helper metrik
+const { broadcastCounter } = require('../config/metrics');
+const { poolConfig } = require('../config/database');
+const { runWithConcurrencyLimit } = require('../helpers/concurrency');
 const { setTimeout: sleep } = require('timers/promises');
+
+const prefetchCount = parseInt(process.env.RABBITMQ_PREFETCH, 10) || poolConfig.max;
+
 const startWorker = async () => {
     await RabbitMQManager.connect();
+    console.log(`[*] DB pool max=${poolConfig.max}, RabbitMQ prefetch=${prefetchCount}`);
+
     RabbitMQManager.consumer(CONSTANTS.RABBITMQ.QUEUES.WHATSAPP, async (batchData) => {
         console.log(`Received batch ${batchData.length} data...`);
 
         const failedItems = [];
-        await Promise.all(batchData.map(async (item) => {
+        await runWithConcurrencyLimit(batchData, async (item) => {
             try {
                 await BroadcastListener.listen(item);
-                broadcastCounter.inc({ status: 'success' }); // Increment counter jika sukses
+                broadcastCounter.inc({ status: 'success' });
                 await sleep(50);
             } catch (error) {
                 failedItems.push({
@@ -20,9 +27,9 @@ const startWorker = async () => {
                     error_reason: error.message,
                     failed_at: new Date().toISOString()
                 });
-                broadcastCounter.inc({ status: 'failed' }); // Increment counter jika gagal
+                broadcastCounter.inc({ status: 'failed' });
             }
-        }));
+        }, poolConfig.max);
         // for (const [index, item] of batchData.entries()) {
         //     try {
         //         // 1. Kirim API satu per satu
@@ -39,10 +46,9 @@ const startWorker = async () => {
         // }
 
         if (failedItems.length > 0) {
-            // PUBLISH TO FAILED_QUEUE
             await RabbitMQManager.publishToQueue(CONSTANTS.RABBITMQ.QUEUES.FAILED_QUEUE, failedItems);
         }
-    });
+    }, prefetchCount);
 };
 
 startWorker();

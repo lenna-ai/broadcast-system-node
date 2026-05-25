@@ -18,8 +18,7 @@ export const sendBroadcast = async (method, endpoint, options) => {
     }
 };
 
-export const saveBroadcastMessage = async (request, resData, payload) => {
-    const trx = await db.transaction();
+export const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
     const insertData = {
         channel_id: 4,
         type: 'broadcast',
@@ -38,8 +37,15 @@ export const saveBroadcastMessage = async (request, resData, payload) => {
         created_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
         updated_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
         broadcast_id: request.broadcast_id || null,
-    };  
-    await trx('omnichannel.broadcast_messages').insert(insertData);
-    await trx.commit();
-    return resData;
+    };
+
+    if (trx) {
+        await trx('omnichannel.broadcast_messages').insert(insertData);
+        return resData;
+    }
+
+    return db.transaction(async (transaction) => {
+        await transaction('omnichannel.broadcast_messages').insert(insertData);
+        return resData;
+    });
 };

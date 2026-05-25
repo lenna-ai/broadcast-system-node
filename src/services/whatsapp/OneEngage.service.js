@@ -4,6 +4,7 @@
 const db = require('../../config/database');
 const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/ExternalApi.repositories');
 const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/Broadcast.repositories');
+const { insertApiLog } = require('../../repositories/Log.repositories');
 const { getContentProvider } = require('./utils/contentUtility');
 const DateTime = require('luxon').DateTime;
 
@@ -17,9 +18,9 @@ class OneEngageService {
         this.broadcast = null;
     }
 
-    async init() {
-        this.api = await getExternalApi({ category: 'channel', provider: '1engage' });
-        this.endpoint = await getExternalApiWithEndpoints({ category: 'channel', provider: '1engage' }, {name: 'v15-messages-send'}, this.db);
+    async init(trx = this.db) {
+        this.api = await getExternalApi({ category: 'channel', provider: '1engage' }, trx);
+        this.endpoint = await getExternalApiWithEndpoints({ category: 'channel', provider: '1engage' }, { name: 'v15-messages-send' }, trx);
 
         let baseUri = this.api?.base_url;
         if (!baseUri) {
@@ -28,7 +29,7 @@ class OneEngageService {
         this.baseUri = baseUri;
     }
 
-    async sendHsm(phone, request, optional) {
+    async sendHsm(phone, request, optional, trx = this.db) {
         if (!this.endpoint) {
             throw new Error('Api is not defined');
         }
@@ -74,7 +75,7 @@ class OneEngageService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: requestEndpoint,
-            });
+            }, trx);
 
             throw error;
         }
@@ -103,7 +104,7 @@ class OneEngageService {
         }
 
         // save broadcast message
-        await saveBroadcastMessage(request, resData, payload);
+        await saveBroadcastMessage(request, resData, payload, trx);
         // add api log
         
         return resData;
