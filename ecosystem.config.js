@@ -2,8 +2,8 @@ module.exports = {
   apps : [
     {
       name: "broadcast|queue",
-      script: "./src/workers/broadcast.worker.js", // Merujuk ke baris 7 di image_4770c0.png
-      instances: 3, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
+      script: "./src/workers/broadcast.worker.js",
+      instances: 3, 
       exec_mode: "cluster",
       autorestart: true,
       watch: false,
@@ -19,8 +19,8 @@ module.exports = {
     },
     {
       name: "broadcast|failed-queue",
-      script: "./src/workers/failed.worker.js", // Merujuk ke baris 7 di image_4770c0.png
-      instances: 2, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
+      script: "./src/workers/failed.worker.js",
+      instances: 2, 
       exec_mode: "cluster",
       autorestart: true,
       watch: false,
@@ -36,7 +36,7 @@ module.exports = {
     },
     {
       name: "broadcast|monitor",   
-      script: "./src/workers/monitor.worker.js",      // Jalur ke skrip monitor yang dibuat sebelumnya
+      script: "./src/workers/monitor.worker.js", 
       instances: 1,                
       exec_mode: "fork",
       autorestart: true,           
@@ -50,8 +50,8 @@ module.exports = {
     },
     {
       name: "broadcast|server",
-      script: "./server.js", // Merujuk ke baris 7 di image_4770c0.png
-      instances: 1, // Anda bisa sesuaikan jumlah worker untuk memproses antrean lebih cepat
+      script: "./server.js",
+      instances: 1, 
       exec_mode: "fork",
       autorestart: true,
       watch: false,
