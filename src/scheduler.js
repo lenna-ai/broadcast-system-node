@@ -4,8 +4,6 @@ const RabbitMQManager = require('./queue/rabbitmq.manager');
 const CONSTANTS = require('./config/constants');
 
 cron.schedule('* * * * *', async () => {
-    console.log('⏰ Checking for scheduled broadcasts...');
-
     try {
         await RabbitMQManager.connect();
 
@@ -49,11 +47,15 @@ cron.schedule('* * * * *', async () => {
             // Push setiap batch ke antrean RabbitMQ
             for (const batch of batches) {
                 const queuePayload = batch.map(r => (r.payload));
-                console.log("payload ", JSON.stringify(queuePayload));
-
                 await RabbitMQManager.publishToQueue(CONSTANTS.RABBITMQ.QUEUES.WHATSAPP, queuePayload);
             }
+
+            await db.raw(
+                'UPDATE omnichannel.broadcasts SET status = ? WHERE id = ?', 
+                ['processing', broadcast.broadcast_id]
+            );
         }
+
     } catch (error) {
         console.error('💥 Scheduler Error:', error.message);
     }
