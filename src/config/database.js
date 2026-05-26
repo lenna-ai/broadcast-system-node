@@ -45,6 +45,6 @@ const getPoolStats = () => {
     };
 };
 
+db.poolConfig = poolConfig;
+db.getPoolStats = getPoolStats;
 module.exports = db;
-module.exports.poolConfig = poolConfig;
-module.exports.getPoolStats = getPoolStats;
