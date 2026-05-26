@@ -119,12 +119,22 @@ class BroadcastListener {
     }
 
     static async failed(request) {
+        let broadcastPayload = request?.data ?? request;
+        if (typeof broadcastPayload === 'string') {
+            broadcastPayload = JSON.parse(broadcastPayload);
+        }
+        const errorReason = request?.error_reason || 'Processing failed';
+        const failedAt = request?.failed_at || new Date().toISOString();
 
-        const data = request.data || [];
-        const errorReason = request.error_reason || null;
-        const failedAt = request.failed_at || new Date().toISOString();
+        if (!broadcastPayload || typeof broadcastPayload !== 'object') {
+            throw new Error('Invalid failed message payload');
+        }
+        if (typeof broadcastPayload.template === 'string') {
+            broadcastPayload.template = JSON.parse(broadcastPayload.template);
+        }
+
         let resData = {
-            'to': data.recipient,
+            'to': broadcastPayload.recipient,
             'status': 'failed',
             'msgId': null,
             'trxId': null,
@@ -133,7 +143,7 @@ class BroadcastListener {
         }
 
         await saveBroadcastMessage(
-            data,
+            broadcastPayload,
             resData,
             []
         );

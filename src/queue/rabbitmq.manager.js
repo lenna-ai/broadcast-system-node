@@ -39,16 +39,22 @@ class RabbitMQManager {
     });
   }
 
-  async failedConsumer(queueName, callback) {
+  async failedConsumer(queueName, callback, prefetchCount = 5) {
     const channel = getChannel();
-    console.log(`[*] Waiting failed messages in queue: ${queueName} (Prefetch: ${1})`);
-    channel.prefetch(5);
+    channel.prefetch(prefetchCount);
+
+    console.log(`[*] Waiting failed messages in queue: ${queueName} (Prefetch: ${prefetchCount})`);
 
     return channel.consume(queueName, async (msg) => {
-      if (msg !== null) {
+      if (msg === null) return;
+
+      try {
         const content = JSON.parse(msg.content.toString());
         await callback(content);
         channel.ack(msg);
+      } catch (error) {
+        console.error(`Error processing message from ${queueName}:`, error.message);
+        channel.nack(msg, false, false);
       }
     });
   }
