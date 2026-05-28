@@ -1,8 +1,8 @@
 const db = require('../../config/database');
-const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/ExternalApi.repositories');
-const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/Broadcast.repositories');
-const { getContentProvider } = require('./utils/contentUtility');
-const { insertApiLog } = require('../../repositories/Log.repositories');
+const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/external_api_repository');
+const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/broadcast_repository');
+const { getContentProvider } = require('./utils/content_utility');
+const { insertApiLog } = require('../../repositories/log_repository');
 
 const DateTime = require('luxon').DateTime;
 

@@ -1,4 +1,4 @@
-const BroadcastManager = require('./src/services/BroadcastManager');
+const BroadcastManager = require('./src/services/broadcast_manager');
 
 async function testValidation() {
     console.log('--- Testing Empty Payload ---');

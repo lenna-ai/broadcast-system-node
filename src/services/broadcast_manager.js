@@ -1,5 +1,5 @@
-const BroadcastPublisher = require('./BroadcastPublisher');
-const BroadcastListener = require('./BroadcastListener');
+const BroadcastPublisher = require('./broadcast_publisher');
+const BroadcastListener = require('./broadcast_listener');
 const CONSTANTS = require('../config/constants');
 
 class BroadcastManager {

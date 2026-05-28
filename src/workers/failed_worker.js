@@ -1,9 +1,9 @@
-const RabbitMQManager = require('../queue/rabbitmq.manager');
+const RabbitMQManager = require('../queue/rabbitmq_manager');
 const CONSTANTS = require('../config/constants');
-const BroadcastListener = require('../services/BroadcastListener');
+const BroadcastListener = require('../services/broadcast_listener');
 const { poolConfig } = require('../config/database');
 const { runWithConcurrencyLimit } = require('../helpers/concurrency');
-const { normalizeFailedQueuePayload } = require('../helpers/failedMessage');
+const { normalizeFailedQueuePayload } = require('../helpers/failed_message');
 
 const failedPrefetch = parseInt(process.env.RABBITMQ_FAILED_PREFETCH, 10) || 5;
 

@@ -1,4 +1,4 @@
-const rabbitMQManager = require('./queue/rabbitmq.manager');
+const rabbitMQManager = require('./queue/rabbitmq_manager');
 const config = require('./config/rabbitmq');
 
 async function sendTestMessages() {

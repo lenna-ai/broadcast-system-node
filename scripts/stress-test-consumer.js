@@ -1,4 +1,4 @@
-const RabbitMQManager = require('../src/queue/rabbitmq.manager');
+const RabbitMQManager = require('../src/queue/rabbitmq_manager');
 const CONSTANTS = require('../src/config/constants');
 
 const TOTAL_MESSAGES = process.argv[2] || 1000;

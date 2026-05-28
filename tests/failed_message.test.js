@@ -1,7 +1,7 @@
 const {
     normalizeFailedQueuePayload,
     normalizeWhatsappQueuePayload,
-} = require('../src/helpers/failedMessage');
+} = require('../src/helpers/failed_message');
 
 describe('failedMessage helpers', () => {
     test('normalizeWhatsappQueuePayload wraps single object', () => {

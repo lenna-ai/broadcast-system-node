@@ -1,4 +1,4 @@
-const broadcastWorker = require('./workers/broadcast.worker');
+const broadcastWorker = require('./workers/broadcast_worker');
 
 console.log('Starting Broadcast System...');
 

@@ -4,8 +4,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "queue": "node src/workers/broadcast.worker.js",
-    "failed-queue": "node src/workers/failed.worker.js",
+    "queue": "node src/workers/broadcast_worker.js",
+    "failed-queue": "node src/workers/failed_worker.js",
     "start": "node src/index.js",
     "server": "node server.js",
     "produce": "node src/producer.js",

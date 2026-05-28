@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const db = require('./config/database'); // 🌟 Destructuring ambil 'db' Knex
-const RabbitMQManager = require('./queue/rabbitmq.manager');
+const RabbitMQManager = require('./queue/rabbitmq_manager');
 const CONSTANTS = require('./config/constants');
 
 cron.schedule('* * * * *', async () => {

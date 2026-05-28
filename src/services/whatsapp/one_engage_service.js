@@ -2,10 +2,10 @@
 // OneEngageService.js
 //
 const db = require('../../config/database');
-const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/ExternalApi.repositories');
-const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/Broadcast.repositories');
-const { insertApiLog } = require('../../repositories/Log.repositories');
-const { getContentProvider } = require('./utils/contentUtility');
+const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositories/external_api_repository');
+const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/broadcast_repository');
+const { insertApiLog } = require('../../repositories/log_repository');
+const { getContentProvider } = require('./utils/content_utility');
 const DateTime = require('luxon').DateTime;
 
 

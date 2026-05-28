@@ -1,19 +1,19 @@
 // Mock repositories to avoid ESM/DB issues
-jest.mock('../src/repositories/Broadcast.repositories', () => ({
+jest.mock('../src/repositories/broadcast_repository', () => ({
     sendBroadcast: jest.fn(),
     saveBroadcastMessage: jest.fn()
 }));
-jest.mock('../src/repositories/ExternalApi.repositories', () => ({
+jest.mock('../src/repositories/external_api_repository', () => ({
     getExternalApi: jest.fn(),
     getExternalApiWithEndpoints: jest.fn()
 }));
 
 const request = require('supertest');
 const app = require('../app');
-const BroadcastManager = require('../src/services/BroadcastManager');
+const BroadcastManager = require('../src/services/broadcast_manager');
 
 // Mock BroadcastManager
-jest.mock('../src/services/BroadcastManager');
+jest.mock('../src/services/broadcast_manager');
 
 describe('Broadcast API', () => {
     afterEach(() => {

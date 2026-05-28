@@ -2,7 +2,7 @@ module.exports = {
   apps : [
     {
       name: "broadcast|queue",
-      script: "./src/workers/broadcast.worker.js",
+      script: "./src/workers/broadcast_worker.js",
       instances: 3, 
       exec_mode: "cluster",
       autorestart: true,
@@ -19,7 +19,7 @@ module.exports = {
     },
     {
       name: "broadcast|failed-queue",
-      script: "./src/workers/failed.worker.js",
+      script: "./src/workers/failed_worker.js",
       instances: 2, 
       exec_mode: "cluster",
       autorestart: true,
@@ -36,7 +36,7 @@ module.exports = {
     },
     {
       name: "broadcast|monitor",   
-      script: "./src/workers/monitor.worker.js", 
+      script: "./src/workers/monitor_worker.js", 
       instances: 1,                
       exec_mode: "fork",
       autorestart: true,           

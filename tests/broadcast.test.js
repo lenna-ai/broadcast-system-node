@@ -1,22 +1,22 @@
 // Mock dependencies that use ESM or DB
-jest.mock('../src/repositories/Broadcast.repositories', () => ({
+jest.mock('../src/repositories/broadcast_repository', () => ({
     sendBroadcast: jest.fn(),
     saveBroadcastMessage: jest.fn()
 }));
-jest.mock('../src/repositories/ExternalApi.repositories', () => ({
+jest.mock('../src/repositories/external_api_repository', () => ({
     getExternalApi: jest.fn(),
     getExternalApiWithEndpoints: jest.fn()
 }));
-jest.mock('../src/repositories/Log.repositories', () => ({
+jest.mock('../src/repositories/log_repository', () => ({
     saveLog: jest.fn()
 }));
 
-const BroadcastManager = require('../src/services/BroadcastManager');
-const BroadcastPublisher = require('../src/services/BroadcastPublisher');
+const BroadcastManager = require('../src/services/broadcast_manager');
+const BroadcastPublisher = require('../src/services/broadcast_publisher');
 const CONSTANTS = require('../src/config/constants');
 
 // Mock BroadcastPublisher
-jest.mock('../src/services/BroadcastPublisher');
+jest.mock('../src/services/broadcast_publisher');
 
 describe('BroadcastManager', () => {
     afterEach(() => {

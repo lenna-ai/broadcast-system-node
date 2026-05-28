@@ -1,4 +1,4 @@
-const { getMediaTypeFromUrl } = require('./mediaUtility');
+const { getMediaTypeFromUrl } = require('./media_utility');
 
 const setDynamicParams = (optional) => {
     let body = {

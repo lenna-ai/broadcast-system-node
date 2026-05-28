@@ -1,9 +1,9 @@
 const db = require('../config/database');
 const CONSTANTS = require('../config/constants');
-const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
-const OneEngageService = require('./whatsapp/OneEngage.service');
-const DamcorpService = require('./whatsapp/Damcorp.service');
-const { saveBroadcastMessage } = require('../repositories/Broadcast.repositories');
+const { normalizeRecipients } = require('./whatsapp/utils/phone_utility');
+const OneEngageService = require('./whatsapp/one_engage_service');
+const DamcorpService = require('./whatsapp/damcorp_service');
+const { saveBroadcastMessage } = require('../repositories/broadcast_repository');
 //HELPERS RESPONSE
 
 

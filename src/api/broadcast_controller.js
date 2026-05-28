@@ -1,4 +1,4 @@
-const BroadcastManager = require('../services/BroadcastManager');
+const BroadcastManager = require('../services/broadcast_manager');
 const { successResponse, errorResponse } = require('../helpers/response');
 
 
