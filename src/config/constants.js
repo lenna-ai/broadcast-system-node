@@ -1,4 +1,10 @@
 module.exports = {
+    CHANNEL: {
+        WHATSAPP: {
+            ID: parseInt(process.env.WHATSAPP_CHANNEL_ID, 10) || 4,
+            CLIENT: 'whatsapp',
+        },
+    },
     RABBITMQ: {
         EXCHANGES: {
             DLX: 'broadcast_failed_exchange',

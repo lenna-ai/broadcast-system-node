@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const CONSTANTS = require('../config/constants');
 const { normalizeRecipients } = require('./whatsapp/utils/phoneUtility');
 const OneEngageService = require('./whatsapp/OneEngage.service');
 const DamcorpService = require('./whatsapp/Damcorp.service');
@@ -153,7 +154,7 @@ class BroadcastListener {
 
     static async validateRequest(request, trx) {
         const integration = await trx('omnichannel.integrations')
-            .where('channel_id', 4)
+            .where('channel_id', CONSTANTS.CHANNEL.WHATSAPP.ID)
             .where('id', request.integration_id)
             .first();
 

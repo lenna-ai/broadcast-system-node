@@ -1,8 +1,9 @@
-import got from 'got';
-import { DateTime } from 'luxon';
-import db from '../config/database.js';
+const got = require('got');
+const { DateTime } = require('luxon');
+const db = require('../config/database');
+const CONSTANTS = require('../config/constants');
 
-export const sendBroadcast = async (method, endpoint, options) => {
+const sendBroadcast = async (method, endpoint, options) => {
     try {
         method = method.toLowerCase();
         const response = await got[method](endpoint, {
@@ -14,16 +15,18 @@ export const sendBroadcast = async (method, endpoint, options) => {
         return response.body;
     } catch (error) {
         console.error("Failed to send broadcast:", error.response?.body || error.message);
-        throw error; 
+        throw error;
     }
 };
 
-export const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
+const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
+    const { ID: channelId, CLIENT: client } = CONSTANTS.CHANNEL.WHATSAPP;
+
     const insertData = {
-        channel_id: 4,
+        channel_id: channelId,
         type: 'broadcast',
         category: 'hsm',
-        client: 'whatsapp',
+        client,
         topics: request.template.template_name,
         app_id: request.app_id,
         integration_id: request.integration_id,
@@ -48,4 +51,9 @@ export const saveBroadcastMessage = async (request, resData, payload, trx = null
         await transaction('omnichannel.broadcast_messages').insert(insertData);
         return resData;
     });
+};
+
+module.exports = {
+    sendBroadcast,
+    saveBroadcastMessage,
 };

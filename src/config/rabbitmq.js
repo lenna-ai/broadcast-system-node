@@ -12,7 +12,7 @@ const connectRabbitMQ = async () => {
     if (channel) return channel;
 
     try {
-        console.log('Connecting to RabbitMQ...', process.env.RABBITMQ_URL);
+        console.log('Connecting to RabbitMQ...');
         
         const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
         connection = await amqp.connect(RABBITMQ_URL);
