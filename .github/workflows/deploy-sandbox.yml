@@ -3,7 +3,7 @@ name: Build and Deploy Sandbox
 on:
   push:
     branches:
-      - sandbox
+      - staging
 
 env:
   REGISTRY: ghcr.io
