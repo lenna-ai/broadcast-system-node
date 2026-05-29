@@ -9,7 +9,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   PREFIX: sandbox
-  DEPLOY_URL: YOUR_SANDBOX_WEBHOOK_URL_PLACEHOLDER
+  DEPLOY_URL: https://dokploy.lenna.ai/api/deploy/compose/-gPaFMcMdc-zD3dIc1Ijl
 
 jobs:
   build-and-push:
