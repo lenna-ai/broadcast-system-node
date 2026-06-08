@@ -1,14 +1,15 @@
-const got = require('got');
+const got = require('got').default || require('got');
 const { DateTime } = require('luxon');
 const db = require('../config/database');
 const CONSTANTS = require('../config/constants');
 
 const sendBroadcast = async (method, endpoint, options) => {
     try {
-        method = method.toLowerCase();
-        const response = await got[method](endpoint, {
+        const httpMethod = (method || 'post').toLowerCase();
+        const response = await got(endpoint, {
             ...options,
-            responseType: 'json'
+            method: httpMethod.toUpperCase(),
+            responseType: 'json',
         });
 
         console.log("Broadcast sent:", response.body);

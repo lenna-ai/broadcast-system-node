@@ -64,23 +64,13 @@ class BroadcastListener {
                     category: request?.template?.category,
                     params: request?.params_data || [],
                 };
+                if (request.template.type === 'carousel') {
+                    optional.carousel_cards = request?.template?.cards || [];
+                }
 
                 provider = integrationData.apiService || provider;
                 let response = null;
                 if (provider === '1engage') {
-                    // Parsing components untuk Whatsapp Carousel
-                    if (request.components) {
-                        const componentsData = typeof request.components === 'string' ? JSON.parse(request.components) : request.components;
-                        
-                        if (Array.isArray(componentsData)) {
-                            for (const comp of componentsData) {
-                                if (comp.type && comp.type.toLowerCase() === 'carousel' && comp.cards) {
-                                    optional.carousel_cards = comp.cards;
-                                }
-                            }
-                        }
-                    }
-
                     try {
                         const service = new OneEngageService(integration);
                         await service.init(trx);

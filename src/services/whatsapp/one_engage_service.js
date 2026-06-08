@@ -54,7 +54,6 @@ class OneEngageService {
 
         const authHeader = this.getAuthHeader(this.integration?.integration_data || []);
         const payload = {...baseRequestData, to: phone};
-
         // =====================================================================
         // Send Request
         // =====================================================================
