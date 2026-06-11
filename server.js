@@ -1,19 +1,29 @@
 require('dotenv').config();
 const app = require('./app');
-const { connectRabbitMQ } = require('./src/config/rabbitmq');
+const db = require('./src/config/database');
+const { connectRabbitMQ, closeRabbitMQ } = require('./src/config/rabbitmq');
+const { registerGracefulShutdown } = require('./src/helpers/graceful_shutdown');
 
 const PORT = process.env.PORT || 3000;
+let server;
 
 const startServer = async () => {
     try {
-        // Inisialisasi RabbitMQ sebelum server jalan
         await connectRabbitMQ();
-        
-        app.listen(PORT, () => {
-            console.log(`Listerner running on port ${PORT}`);
+
+        server = app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+
+        registerGracefulShutdown(async () => {
+            if (server) {
+                await new Promise((resolve) => server.close(resolve));
+            }
+            await closeRabbitMQ();
+            await db.destroyDb();
         });
     } catch (error) {
-        console.error('Failed to start listerners:', error.message);
+        console.error('Failed to start server:', error.message);
         process.exit(1);
     }
 };

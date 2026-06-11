@@ -12,7 +12,9 @@ const sendBroadcast = async (method, endpoint, options) => {
             responseType: 'json',
         });
 
-        console.log("Broadcast sent:", response.body);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Broadcast sent:', response.body);
+        }
         return response.body;
     } catch (error) {
         console.error("Failed to send broadcast:", error.response?.body || error.message);

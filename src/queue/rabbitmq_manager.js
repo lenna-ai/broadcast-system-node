@@ -8,12 +8,18 @@ class RabbitMQManager {
 
   async publishToQueue(queueName, message) {
     const channel = getChannel();
-    
-    return channel.sendToQueue(
+
+    const published = channel.sendToQueue(
       queueName,
       Buffer.from(JSON.stringify(message)),
       { persistent: true }
     );
+
+    if (!published) {
+      throw new Error(`RabbitMQ buffer full, failed to publish to ${queueName}`);
+    }
+
+    return published;
   }
 
   async consumer(queueName, callback, prefetchCount = 20) {

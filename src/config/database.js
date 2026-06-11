@@ -3,9 +3,11 @@ const knex = require('knex');
 
 const poolConfig = {
     min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
-    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    max: parseInt(process.env.DB_POOL_MAX, 10) || 5,
     acquireTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE_TIMEOUT, 10) || 30000,
     idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT, 10) || 30000,
+    createTimeoutMillis: parseInt(process.env.DB_POOL_CREATE_TIMEOUT, 10) || 30000,
+    reapIntervalMillis: parseInt(process.env.DB_POOL_REAP_INTERVAL, 10) || 1000,
 };
 
 const db = knex({
@@ -26,9 +28,8 @@ if (process.env.NODE_ENV !== 'test') {
             console.log('📦 DB Connected');
         })
         .catch((err) => {
-            console.log(process.env.DB_HOST, process.env.DB_USERNAME, process.env.DB_DATABASE);
             console.error('Failed to connect to database:', err.message);
-            process.exit(1); 
+            process.exit(1);
         });
 }
 
@@ -45,6 +46,9 @@ const getPoolStats = () => {
     };
 };
 
+const destroyDb = () => db.destroy();
+
 db.poolConfig = poolConfig;
 db.getPoolStats = getPoolStats;
+db.destroyDb = destroyDb;
 module.exports = db;

@@ -13,7 +13,7 @@ const connectRabbitMQ = async () => {
 
     try {
         console.log('Connecting to RabbitMQ...');
-        
+
         const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
         connection = await amqp.connect(RABBITMQ_URL);
         channel = await connection.createChannel();
@@ -55,13 +55,31 @@ const connectRabbitMQ = async () => {
 };
 
 const getChannel = () => {
-    if (!channel) throw new Error("RabbitMQ Channel belum diinisialisasi!");
+    if (!channel) throw new Error('RabbitMQ channel is not initialized');
     return channel;
 };
 
-module.exports = { 
-    connectRabbitMQ, 
+const closeRabbitMQ = async () => {
+    try {
+        if (channel) await channel.close();
+    } catch (error) {
+        console.error('Error closing RabbitMQ channel:', error.message);
+    }
+
+    try {
+        if (connection) await connection.close();
+    } catch (error) {
+        console.error('Error closing RabbitMQ connection:', error.message);
+    }
+
+    channel = null;
+    connection = null;
+};
+
+module.exports = {
+    connectRabbitMQ,
+    closeRabbitMQ,
     getChannel,
     url: process.env.RABBITMQ_URL || 'amqp://localhost',
-    queues: CONSTANTS.RABBITMQ.QUEUES
+    queues: CONSTANTS.RABBITMQ.QUEUES,
 };

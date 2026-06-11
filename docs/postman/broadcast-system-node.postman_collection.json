@@ -1,0 +1,190 @@
+{
+  "info": {
+    "_postman_id": "broadcast-system-node-api",
+    "name": "Broadcast System Node API",
+    "description": "REST API untuk broadcast WhatsApp HSM via RabbitMQ queue.\n\n## Setup\n1. Import environment `broadcast-system-node.postman_environment.json`\n2. Sesuaikan variable `base_url`, `integration_id`, `recipient`, dll.\n3. Pastikan server (`npm run server`) dan worker (`npm run queue`) sudah running.\n\n## Alur umum\n- **Publish** → kirim ke RabbitMQ (async, diproses worker)\n- **Listen** → proses langsung tanpa queue (sync, untuk testing)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Monitoring",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Cek status kesehatan service. Digunakan juga sebagai Docker healthcheck."
+          },
+          "response": []
+        },
+        {
+          "name": "System Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/monitor/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["monitor", "metrics"]
+            },
+            "description": "Melihat status DB connection pool dan system metrics (CPU, memory, uptime)."
+          },
+          "response": []
+        },
+        {
+          "name": "Stress DB (dev only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/monitor/stress-db?count=10",
+              "host": ["{{base_url}}"],
+              "path": ["monitor", "stress-db"],
+              "query": [
+                {
+                  "key": "count",
+                  "value": "10",
+                  "description": "Jumlah parallel query"
+                }
+              ]
+            },
+            "description": "Stress test koneksi DB. Hanya tersedia jika `ENABLE_STRESS_ENDPOINT=true`. Disabled di production."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Broadcast",
+      "item": [
+        {
+          "name": "Publish to Queue (WhatsApp HSM)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"whatsapp\",\n  \"payload\": {\n    \"integration_id\": {{integration_id}},\n    \"broadcast_id\": {{broadcast_id}},\n    \"recipient\": \"{{recipient}}\",\n    \"app_id\": {{app_id}},\n    \"sent_by\": 1,\n    \"template\": {\n      \"id\": {{template_id}},\n      \"template_name\": \"hello_world\",\n      \"language\": \"id\",\n      \"category\": \"marketing\"\n    },\n    \"params_data\": [\"Budi\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/broadcast/publish",
+              "host": ["{{base_url}}"],
+              "path": ["broadcast", "publish"]
+            },
+            "description": "Publish pesan ke antrean RabbitMQ `broadcast_whatsapp_hsm_queue`. Worker akan memproses secara async.\n\n**type yang didukung:** `whatsapp` (email & lead belum aktif di constants)."
+          },
+          "response": []
+        },
+        {
+          "name": "Publish Batch to Queue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"whatsapp\",\n  \"payload\": [\n    {\n      \"integration_id\": {{integration_id}},\n      \"broadcast_id\": {{broadcast_id}},\n      \"recipient\": \"6281111111111\",\n      \"app_id\": {{app_id}},\n      \"template\": {\n        \"id\": {{template_id}},\n        \"template_name\": \"hello_world\",\n        \"language\": \"id\"\n      },\n      \"params_data\": [\"User A\"]\n    },\n    {\n      \"integration_id\": {{integration_id}},\n      \"broadcast_id\": {{broadcast_id}},\n      \"recipient\": \"6282222222222\",\n      \"app_id\": {{app_id}},\n      \"template\": {\n        \"id\": {{template_id}},\n        \"template_name\": \"hello_world\",\n        \"language\": \"id\"\n      },\n      \"params_data\": [\"User B\"]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/broadcast/publish",
+              "host": ["{{base_url}}"],
+              "path": ["broadcast", "publish"]
+            },
+            "description": "Publish batch array ke queue. Worker akan normalize dan proses dengan concurrency limit."
+          },
+          "response": []
+        },
+        {
+          "name": "Listen - Standard HSM (sync)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": {{integration_id}},\n  \"broadcast_id\": {{broadcast_id}},\n  \"recipient\": \"{{recipient}}\",\n  \"app_id\": {{app_id}},\n  \"sent_by\": 1,\n  \"template\": {\n    \"id\": {{template_id}},\n    \"template_name\": \"hello_world\",\n    \"language\": \"id\",\n    \"category\": \"marketing\"\n  },\n  \"params_data\": [\"Budi\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/broadcast/listen",
+              "host": ["{{base_url}}"],
+              "path": ["broadcast", "listen"]
+            },
+            "description": "Proses broadcast langsung tanpa queue. Berguna untuk testing integrasi provider (1engage/damcorp).\n\nMembutuhkan data valid di DB: `integrations`, `hsm_templates`, `broadcasts`."
+          },
+          "response": []
+        },
+        {
+          "name": "Listen - HSM with Media Header",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": {{integration_id}},\n  \"broadcast_id\": {{broadcast_id}},\n  \"recipient\": \"{{recipient}}\",\n  \"app_id\": {{app_id}},\n  \"sent_by\": 1,\n  \"template\": {\n    \"id\": {{template_id}},\n    \"template_name\": \"dmc_header_media_tmp_1\",\n    \"language\": \"id\",\n    \"category\": \"marketing\",\n    \"header\": {\n      \"headerType\": \"image\",\n      \"mediaUrl\": \"https://example.com/image.jpg\"\n    }\n  },\n  \"params_data\": [\"Budi\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/broadcast/listen",
+              "host": ["{{base_url}}"],
+              "path": ["broadcast", "listen"]
+            },
+            "description": "Kirim HSM dengan header media (image/video/document)."
+          },
+          "response": []
+        },
+        {
+          "name": "Listen - Carousel HSM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integration_id\": {{integration_id}},\n  \"broadcast_id\": {{broadcast_id}},\n  \"recipient\": \"{{recipient}}\",\n  \"app_id\": {{app_id}},\n  \"sent_by\": 1,\n  \"template\": {\n    \"id\": {{template_id}},\n    \"type\": \"carousel\",\n    \"template_name\": \"carousel_promo\",\n    \"language\": \"id\",\n    \"category\": \"marketing\",\n    \"cards\": [\n      {\n        \"components\": [\n          {\n            \"type\": \"HEADER\",\n            \"mediaUrl\": \"https://example.com/product-a.jpg\"\n          },\n          {\n            \"type\": \"BODY\",\n            \"text\": \"Product A\"\n          },\n          {\n            \"type\": \"BUTTONS\",\n            \"buttons\": [\n              {\n                \"type\": \"QUICK_REPLY\",\n                \"text\": \"Go to page\"\n              }\n            ]\n          }\n        ]\n      },\n      {\n        \"components\": [\n          {\n            \"type\": \"HEADER\",\n            \"mediaUrl\": \"https://example.com/product-b.jpg\"\n          },\n          {\n            \"type\": \"BODY\",\n            \"text\": \"Product B\"\n          },\n          {\n            \"type\": \"BUTTONS\",\n            \"buttons\": [\n              {\n                \"type\": \"QUICK_REPLY\",\n                \"text\": \"Go to page\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  },\n  \"params_data\": [\"Budi\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/broadcast/listen",
+              "host": ["{{base_url}}"],
+              "path": ["broadcast", "listen"]
+            },
+            "description": "Kirim template carousel WhatsApp. Template format (HEADER/BODY/BUTTONS) dikonversi otomatis ke format Meta API send-message oleh `content_utility.js`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
