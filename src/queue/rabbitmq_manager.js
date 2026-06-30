@@ -8,12 +8,16 @@ class RabbitMQManager {
 
   async publishToQueue(queueName, message) {
     const channel = getChannel();
+    const buffer = Buffer.from(JSON.stringify(message));
 
-    const published = channel.sendToQueue(
-      queueName,
-      Buffer.from(JSON.stringify(message)),
-      { persistent: true }
-    );
+    const send = () => channel.sendToQueue(queueName, buffer, { persistent: true });
+
+    let published = send();
+
+    if (!published) {
+      await new Promise((resolve) => channel.once('drain', resolve));
+      published = send();
+    }
 
     if (!published) {
       throw new Error(`RabbitMQ buffer full, failed to publish to ${queueName}`);

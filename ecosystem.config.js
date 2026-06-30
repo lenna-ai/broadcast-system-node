@@ -1,4 +1,5 @@
 const queueInstances = parseInt(process.env.PM2_QUEUE_INSTANCES, 10) || 2;
+const adiraQueueInstances = parseInt(process.env.PM2_ADIRA_QUEUE_INSTANCES, 10) || queueInstances;
 const failedQueueInstances = parseInt(process.env.PM2_FAILED_QUEUE_INSTANCES, 10) || 1;
 
 const baseAppConfig = {
@@ -29,7 +30,7 @@ module.exports = {
         {
             name: 'broadcast|queue|adira',
             script: './src/workers/broadcast_adira_worker.js',
-            instances: queueInstances,
+            instances: adiraQueueInstances,
             exec_mode: 'cluster',
             ...baseAppConfig,
         },

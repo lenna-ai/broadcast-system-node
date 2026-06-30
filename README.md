@@ -270,6 +270,17 @@ npm test
 
 Image Docker di-push ke GitHub Container Registry (`ghcr.io`).
 
+## Kapasitas & Server Spec
+
+Untuk blast **puluhan ribu pesan**, baca panduan lengkap:
+
+**[docs/SERVER_SPECS.md](docs/SERVER_SPECS.md)**
+
+Ringkasan:
+- Blast di-buffer RabbitMQ, worker proses terkontrol (bukan spike langsung ke API/DB)
+- Default ~80 msg/detik → 50.000 pesan ≈ 10 menit
+- Total koneksi DB default ≈ 35 — jangan melebihi `max_connections` PostgreSQL
+
 ## Postman
 
 Koleksi API tersedia di:

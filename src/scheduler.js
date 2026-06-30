@@ -2,19 +2,29 @@ const cron = require('node-cron');
 const db = require('./config/database');
 const RabbitMQManager = require('./queue/rabbitmq_manager');
 const CONSTANTS = require('./config/constants');
+const { fetchAndPublishRecipients } = require('./helpers/publish_recipients');
+const { logCapacityReport } = require('./helpers/capacity');
 
-const chunkSize = parseInt(process.env.SCHEDULER_CHUNK_SIZE, 10) || 50;
 let isRunning = false;
 
+const resolveQueueName = (broadcast) => {
+    const client = (broadcast.client || broadcast.provider || '').toLowerCase();
+    if (client.includes('adira')) {
+        return CONSTANTS.RABBITMQ.QUEUES.WHATSAPP_ADIRA;
+    }
+    return CONSTANTS.RABBITMQ.QUEUES.WHATSAPP;
+};
+
 const processSchedule = async (broadcast) => {
-    const { rows: recipients } = await db.raw(
-        `SELECT id, phone, payload
-         FROM omnichannel.broadcast_recipients
-         WHERE broadcast_id = ?`,
-        [broadcast.broadcast_id]
+    const queueName = resolveQueueName(broadcast);
+    const totalPublished = await fetchAndPublishRecipients(
+        db,
+        RabbitMQManager,
+        queueName,
+        broadcast.broadcast_id
     );
 
-    if (recipients.length === 0) {
+    if (totalPublished === 0) {
         await db.raw(
             'UPDATE omnichannel.broadcast_schedule SET status = ? WHERE id = ?',
             ['completed', broadcast.id]
@@ -22,15 +32,12 @@ const processSchedule = async (broadcast) => {
         return;
     }
 
-    for (let i = 0; i < recipients.length; i += chunkSize) {
-        const batch = recipients.slice(i, i + chunkSize).map((r) => r.payload);
-        await RabbitMQManager.publishToQueue(CONSTANTS.RABBITMQ.QUEUES.WHATSAPP, batch);
-    }
-
     await db.raw(
         'UPDATE omnichannel.broadcasts SET status = ? WHERE id = ?',
         ['processing', broadcast.broadcast_id]
     );
+
+    console.log(`[scheduler] schedule=${broadcast.id} published=${totalPublished} queue=${queueName}`);
 };
 
 cron.schedule('* * * * *', async () => {
@@ -56,6 +63,10 @@ cron.schedule('* * * * *', async () => {
 
             return rows;
         });
+
+        if (pendingBroadcasts.length > 0) {
+            logCapacityReport('scheduler');
+        }
 
         for (const broadcast of pendingBroadcasts) {
             try {

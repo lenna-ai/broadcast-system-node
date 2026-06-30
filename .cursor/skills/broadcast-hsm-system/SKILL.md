@@ -75,7 +75,10 @@ Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`.
 
 ## Production checklist
 
-- **DB connections**: `(PM2_QUEUE_INSTANCES + PM2_FAILED_QUEUE_INSTANCES + 2) × DB_POOL_MAX` must stay below Postgres `max_connections`. Default: `(2+1+2) × 5 = 25`.
+- **DB connections**: `(PM2_QUEUE_INSTANCES + PM2_ADIRA_QUEUE_INSTANCES + PM2_FAILED_QUEUE_INSTANCES + 2) × DB_POOL_MAX` must stay below Postgres `max_connections`. Default: `(2+2+1+2) × 5 = 35`.
+- **High-volume blast (10k–100k)**: see [docs/SERVER_SPECS.md](../../docs/SERVER_SPECS.md) for server tiers, env tuning, and throughput formulas.
+- **Scheduler**: uses keyset pagination (`SCHEDULER_RECIPIENT_PAGE_SIZE`) — never loads all recipients into memory at once.
+- **Batch cap**: `MAX_QUEUE_BATCH_SIZE` limits items per RabbitMQ message; worker splits oversized batches automatically.
 - **Prefetch**: `RABBITMQ_PREFETCH` and `RABBITMQ_FAILED_PREFETCH` ≤ `DB_POOL_MAX` per process.
 - **No metrics HTTP server in workers** — `config/metrics.js` only exports counters; never bind a port from worker imports (was port 3000 conflict).
 - **Graceful shutdown**: workers and server register `SIGTERM`/`SIGINT` via `helpers/graceful_shutdown.js` → close RabbitMQ + `db.destroy()`.

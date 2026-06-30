@@ -61,7 +61,9 @@ function sendEmailAlert(appName, status) {
     'ryanzulham@lenna.ai', 
     'annisa@lenna.ai', 
     'fachry@lenna.ai', 
-    'operation@lenna.ai'
+    'operation@lenna.ai',
+    'allam@lenna.ai',
+    'savarel@lenna.ai'
   ];
   const mailOptions = {
     from: '"Broadcast Monitor" <mailer@lenna.ai>',
