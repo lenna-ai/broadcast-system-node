@@ -27,6 +27,13 @@ module.exports = {
             ...baseAppConfig,
         },
         {
+            name: 'broadcast|queue|adira',
+            script: './src/workers/broadcast_adira_worker.js',
+            instances: queueInstances,
+            exec_mode: 'cluster',
+            ...baseAppConfig,
+        },
+        {
             name: 'broadcast|failed-queue',
             script: './src/workers/failed_worker.js',
             instances: failedQueueInstances,
