@@ -3,6 +3,9 @@ const { DateTime } = require('luxon');
 const db = require('../config/database');
 const CONSTANTS = require('../config/constants');
 
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Jakarta';
+const nowInTimezone = () => DateTime.now().setZone(APP_TIMEZONE).toFormat('yyyy-MM-dd HH:mm:ss');
+
 const sendBroadcast = async (method, endpoint, options) => {
     try {
         const httpMethod = (method || 'post').toLowerCase();
@@ -39,9 +42,9 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
         body: JSON.stringify(payload),
         channel_message_id: resData.msgId,
         send_by: request.sent_by,
-        schedule_at: request.schedule_at || DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
-        created_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
-        updated_at: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss'),
+        schedule_at: request.schedule_at || nowInTimezone(),
+        created_at: nowInTimezone(),
+        updated_at: nowInTimezone(),
         broadcast_id: request.broadcast_id || null,
     };
 
