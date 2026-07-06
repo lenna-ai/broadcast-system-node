@@ -8,6 +8,9 @@ const baseAppConfig = {
     max_memory_restart: '1G',
     kill_timeout: 10000,
     listen_timeout: 10000,
+    env: {
+        DOTENV_CONFIG_PATH: './.env',
+    },
     env_local: {
         NODE_ENV: 'local',
         DOTENV_CONFIG_PATH: './.env',

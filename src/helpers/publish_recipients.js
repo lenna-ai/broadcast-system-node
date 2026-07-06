@@ -44,7 +44,17 @@ const fetchAndPublishRecipients = async (db, rabbitMQManager, queueName, broadca
 
         if (!rows.length) break;
 
-        const payloads = rows.map((row) => row.payload);
+        const payloads = rows.map((row) => {
+            const value = row.payload;
+            if (typeof value === 'string') {
+                try {
+                    return JSON.parse(value);
+                } catch {
+                    return value;
+                }
+            }
+            return value;
+        });
         await publishRecipientBatches(rabbitMQManager, queueName, payloads);
 
         totalPublished += rows.length;
