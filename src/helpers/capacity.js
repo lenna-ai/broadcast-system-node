@@ -78,9 +78,8 @@ const logCapacityReport = (label = 'worker') => {
     const { warnings, stats } = validateCapacityConfig();
 
     console.log(
-        `[capacity:${label}] processes=${JSON.stringify(stats.workerCounts)} ` +
-        `db_connections≈${stats.totalDbConnections} ` +
-        `throughput≈${stats.estimatedMsgPerSecond} msg/s`
+        `db_connections=${stats.totalDbConnections} ` +
+        `throughput=${stats.estimatedMsgPerSecond} msg/s`
     );
 
     warnings.forEach((warning) => console.warn(`[capacity:${label}] WARN: ${warning}`));
