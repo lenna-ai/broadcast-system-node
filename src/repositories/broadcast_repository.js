@@ -30,7 +30,7 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
 
     const insertData = {
         channel_id: channelId,
-        channel_data: request.channel_data || null,
+        channel_data: request.channel_data ? JSON.stringify(request.channel_data) : null,
         type: 'broadcast',
         category: 'hsm',
         client,
