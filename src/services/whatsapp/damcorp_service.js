@@ -18,9 +18,9 @@ class DamcorpService {
     }
 
     async init(trx = this.db) {
-        this.api = await getExternalApi({ category: 'channel', provider: 'damcorp-v2-waba' }, trx);
-        this.sendMessageApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'send-message' }, trx);
-        this.getTokenApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'get-token' }, trx);
+        this.api = await getExternalApi({ category: 'channel', provider: 'damcorp-v2' }, trx);
+        this.sendMessageApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2' }, { name: 'send-message' }, trx);
+        this.getTokenApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2' }, { name: 'get-token' }, trx);
         this.baseUri = this.api?.base_url || '';
         // Implement initialization logic here
     }
