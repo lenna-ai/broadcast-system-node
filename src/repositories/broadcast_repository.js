@@ -6,6 +6,12 @@ const CONSTANTS = require('../config/constants');
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Jakarta';
 const nowInTimezone = () => DateTime.now().setZone(APP_TIMEZONE).toFormat('yyyy-MM-dd HH:mm:ss');
 
+const previewResponseBody = (body, maxLength = 200) => {
+    if (body == null) return '';
+    const text = typeof body === 'string' ? body : JSON.stringify(body);
+    return text.replace(/\s+/g, ' ').trim().slice(0, maxLength);
+};
+
 const sendBroadcast = async (method, endpoint, options) => {
     try {
         const httpMethod = (method || 'post').toLowerCase();
@@ -20,8 +26,16 @@ const sendBroadcast = async (method, endpoint, options) => {
         }
         return response.body;
     } catch (error) {
-        console.error("Failed to send broadcast:", error.response?.body || error.message);
-        throw error;
+        const statusCode = error.response?.statusCode;
+        const bodyPreview = previewResponseBody(
+            error.response?.body ?? error.response?.rawBody ?? error.message
+        );
+        const detail = statusCode
+            ? `HTTP ${statusCode} ${endpoint}: ${bodyPreview}`
+            : `${endpoint}: ${bodyPreview}`;
+
+        console.error('Failed to send broadcast:', detail);
+        throw new Error(detail);
     }
 };
 

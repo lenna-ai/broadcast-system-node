@@ -18,9 +18,9 @@ class DamcorpService {
     }
 
     async init(trx = this.db) {
-        this.api = await getExternalApi({ category: 'channel', provider: 'damcorp-v2' }, trx);
-        this.sendMessageApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2' }, { name: 'send-message' }, trx);
-        this.getTokenApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2' }, { name: 'get-token' }, trx);
+        this.api = await getExternalApi({ category: 'channel', provider: 'damcorp-v2-waba' }, trx);
+        this.sendMessageApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'send-message' }, trx);
+        this.getTokenApiUrl = await getExternalApiWithEndpoints({ category: 'channel', provider: 'damcorp-v2-waba' }, { name: 'get-token' }, trx);
         this.baseUri = this.api?.base_url || '';
         // Implement initialization logic here
     }
@@ -43,7 +43,7 @@ class DamcorpService {
             template: {
                 name: request.template?.template_name,
                 language: {
-                    code: request.template?.language ?? 'id',
+                    code: request.template?.language ?? request.template?.languange ?? 'id',
                 },
                 components: params
             }
@@ -123,42 +123,57 @@ class DamcorpService {
     }
 
     async apiToken(integration) {
-        let updIntegration = integration;
+        const tokenData = integration.integration_data || {};
 
-        if (
-            integration.integration_data?.tokenAPIExpired &&
-            integration.integration_data?.tokenAPI
-        ) {
+        if (tokenData.tokenApi && tokenData.tokenAPIExpired) {
             const now = DateTime.now().setZone('Asia/Jakarta');
-            const expired = DateTime.fromISO(integration.integration_data.tokenAPIExpired).setZone('Asia/Jakarta');
-            const diffHours = now.diff(expired, 'hours').hours;
+            const expiresAt = DateTime.fromISO(tokenData.tokenAPIExpired).setZone('Asia/Jakarta');
+            const hoursUntilExpiry = expiresAt.diff(now, 'hours').hours;
 
-            if (diffHours <= 24) {
-                updIntegration = await this.getTokenAPI(integration);
-            } else {
-                updIntegration = integration;
+            if (hoursUntilExpiry > 24) {
+                return integration;
             }
-        } else {
-            updIntegration = await this.getTokenAPI(integration);
         }
 
-        return updIntegration;
+        return this.getTokenAPI(integration);
     }
 
     async getTokenAPI(integration) {
-        // Implement get token API logic here
-        let data = integration.integration_data || {};
+        const data = integration.integration_data || {};
+        if (!data.clientId || !data.secretKey) {
+            throw new Error(
+                `Damcorp credentials missing for integration=${integration.id} (clientId/secretKey)`
+            );
+        }
+
         const auth = Buffer.from(`${data.clientId}:${data.secretKey}`).toString('base64');
-        const response = await fetch(this.baseUri + this.getTokenApiUrl?.endpoint, {
+        const url = `${this.baseUri}${this.getTokenApiUrl?.endpoint || ''}`;
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `Basic ${auth}`
-            }
+                Authorization: `Basic ${auth}`,
+            },
         });
-        const responseData = await response.json();
-        integration = await this.saveToken(integration, responseData);
 
-        return integration;
+        const rawBody = await response.text();
+
+        let responseData;
+        try {
+            responseData = JSON.parse(rawBody);
+        } catch {
+            throw new Error(
+                `Damcorp get-token returned non-JSON (HTTP ${response.status}) ${url}: ${rawBody.slice(0, 200)}`
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                `Damcorp get-token failed (HTTP ${response.status}) ${url}: ${rawBody.slice(0, 200)}`
+            );
+        }
+
+        return this.saveToken(integration, responseData);
     }
 
     async saveToken(integration, response) {
