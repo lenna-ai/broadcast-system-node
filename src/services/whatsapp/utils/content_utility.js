@@ -326,9 +326,10 @@ const damcorpContent = (optional) => {
     const body = setDynamicParams(optional);
     content.push(body);
     const header = optional['header'] || null;
-    const headerType = header?.headerType || null;
+    let headerType = header?.headerType || null;
     let headerContent = null;
-    if (optional && optional['carousel_cards'] && Array.isArray(optional['carousel_cards'])) {
+
+    if (optional?.carousel_cards?.length) {
         headerType = 'carousel';
     }
 
@@ -369,6 +370,16 @@ const damcorpContent = (optional) => {
                 });
             }
         }
+    } else if (headerType === 'carousel') {
+        const carouselContent = {
+            type: 'carousel',
+            cards: [],
+        };
+
+        optional.carousel_cards.forEach((cardData, cardIndex) => {
+            carouselContent.cards.push(buildCarouselCard(cardData, cardIndex));
+        });
+        content.push(carouselContent);
     }
 
     const button = optional['button'] || null;
