@@ -9,7 +9,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   PREFIX: production
-  DEPLOY_URL: https://dokploy.lenna.ai/api/deploy/compose/xRTbHMY0AZnwV09tcT3ck
 
 jobs:
   build-and-push:
@@ -51,8 +50,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Trigger Deployment Webhook
-        run: |
-          echo "Triggering deployment for ${{ env.PREFIX }} environment..."
-          curl -X POST ${{ env.DEPLOY_URL }}

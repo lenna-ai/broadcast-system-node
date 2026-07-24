@@ -8,27 +8,47 @@ Layanan broadcast WhatsApp HSM (High Structured Message) berbasis Node.js, Expre
 - Proses langsung via API (sync listen) untuk testing/debug
 - Worker cluster PM2 dengan concurrency terkontrol
 - Dead-letter queue untuk pesan gagal
-- Scheduler broadcast terjadwal dari database
+- Scheduler broadcast terjadwal dari database dengan keyset pagination
+- Dedicated queue Adira dengan throttle terpisah
 - Provider WhatsApp: **1engage** dan **Damcorp**
 - Dukungan template carousel WhatsApp
 - Health check & monitoring metrics
+- Simpan `channel_data` per pesan di `broadcast_messages`
 
 ## Arsitektur
 
 ```
-API / Scheduler
-    │
-    ▼
-RabbitMQ (broadcast_whatsapp_hsm_queue)
-    │
-    ▼
-broadcast_worker (PM2 cluster)
-    │
-    ├─► BroadcastListener.listen()  [1 DB transaction / pesan]
-    │       ├─► 1engage / Damcorp API
-    │       └─► save broadcast_messages
-    │
-    └─► gagal ──► broadcast_failed_queue ──► failed_worker
+Scheduler (cron)                    REST API (/broadcast/publish)
+    │                                       │
+    │ baca broadcast_schedule               │
+    │ baca broadcast_recipients             │
+    │ (keyset pagination)                   │
+    │                                       │
+    ├──► broadcast_whatsapp_hsm_queue ◄─────┤
+    │                                       │
+    └──► broadcast_whatsapp_hsm_adira ◄─────┘
+              (khusus Adira)
+                    │
+    ┌───────────────┴──────────────────┐
+    ▼                                  ▼
+broadcast_worker               broadcast_adira_worker
+(PM2 cluster)                  (PM2 cluster)
+    │                                  │
+    ├─► BroadcastListener.listen()     ├─► BroadcastListener.listen()
+    │       ├─► 1engage / Damcorp API  │
+    │       └─► save broadcast_messages│
+    │           (incl. channel_data)   │
+    │                                  │
+    └─► gagal ──────────────────────────┘
+            │
+            ▼
+    broadcast_failed_queue
+            │
+            ▼
+    failed_worker (PM2 cluster)
+            │
+            └─► BroadcastListener.failed()
+                    └─► save broadcast_messages status=failed
 ```
 
 ### Komponen PM2
@@ -36,10 +56,21 @@ broadcast_worker (PM2 cluster)
 | App | Script | Mode | Fungsi |
 |-----|--------|------|--------|
 | `broadcast\|server` | `server.js` | fork | REST API |
-| `broadcast\|queue` | `src/workers/broadcast_worker.js` | cluster | Consumer utama |
+| `broadcast\|queue` | `src/workers/broadcast_worker.js` | cluster | Consumer queue umum |
+| `broadcast\|queue\|adira` | `src/workers/broadcast_adira_worker.js` | cluster | Consumer queue Adira |
 | `broadcast\|failed-queue` | `src/workers/failed_worker.js` | cluster | Consumer pesan gagal |
 | `broadcast\|scheduler` | `src/scheduler.js` | fork | Cron jadwal broadcast |
 | `broadcast\|monitor` | `src/workers/monitor_worker.js` | fork | Alert crash PM2 |
+
+### RabbitMQ Queues
+
+| Queue | Nama | Keterangan |
+|-------|------|------------|
+| WhatsApp HSM (umum) | `broadcast_whatsapp_hsm_queue` | Antrean utama |
+| WhatsApp HSM Adira | `broadcast_whatsapp_hsm_adira` | Antrean khusus Adira |
+| Failed / DLQ | `broadcast_failed_queue` | Pesan gagal (dead-letter) |
+
+Scheduler otomatis merutekan ke queue yang tepat berdasarkan field `client`/`provider` pada data broadcast — jika mengandung `adira`, pesan dikirim ke `broadcast_whatsapp_hsm_adira`.
 
 ## Prasyarat
 
@@ -68,17 +99,32 @@ Salin dari `.env.example`. Variabel penting:
 | `RABBITMQ_URL` | — | Connection string RabbitMQ |
 | `DB_HOST` / `DB_*` | — | Kredensial PostgreSQL |
 | `DB_POOL_MAX` | `5` | Max koneksi pool per proses PM2 |
-| `RABBITMQ_PREFETCH` | `5` | Prefetch consumer (≤ `DB_POOL_MAX`) |
-| `PM2_QUEUE_INSTANCES` | `2` | Jumlah worker queue |
-| `BROADCAST_THROTTLE_MS` | `50` | Delay antar kirim sukses (ms) |
+| `RABBITMQ_PREFETCH` | `5` | Prefetch consumer queue utama (≤ `DB_POOL_MAX`) |
+| `RABBITMQ_FAILED_PREFETCH` | `5` | Prefetch consumer failed queue |
+| `PM2_QUEUE_INSTANCES` | `2` | Jumlah worker queue umum |
+| `PM2_ADIRA_QUEUE_INSTANCES` | `2` | Jumlah worker queue Adira |
+| `PM2_FAILED_QUEUE_INSTANCES` | `1` | Jumlah worker failed queue |
+| `BROADCAST_THROTTLE_MS` | `50` | Delay antar kirim sukses queue umum (ms) |
+| `BROADCAST_ADIRA_THROTTLE_MS` | `50` | Delay antar kirim sukses queue Adira (ms) |
+| `BROADCAST_AVG_API_MS` | `200` | Estimasi rata-rata response time API (ms, untuk capacity) |
+| `MAX_QUEUE_BATCH_SIZE` | `25` | Maks item per batch pesan queue |
+| `SCHEDULER_CRON` | `* * * * *` | Ekspresi cron scheduler |
+| `SCHEDULER_CHUNK_SIZE` | `25` | Ukuran chunk publish per iterasi |
+| `SCHEDULER_RECIPIENT_PAGE_SIZE` | `1000` | Jumlah penerima per halaman (keyset pagination) |
+| `SCHEDULER_PUBLISH_DELAY_MS` | `10` | Delay antar publish batch scheduler (ms) |
+| `APP_TIMEZONE` | `Asia/Jakarta` | Timezone scheduler & timestamp |
+| `WHATSAPP_CHANNEL_ID` | `4` | ID channel WhatsApp di DB |
+| `DB_MAX_CONNECTIONS_BUDGET` | `80` | Batas total koneksi DB yang boleh dipakai |
 | `ENABLE_STRESS_ENDPOINT` | `false` | Aktifkan `/monitor/stress-db` |
 
 **Perhitungan koneksi DB:**
 
 ```
-total ≈ (PM2_QUEUE_INSTANCES + PM2_FAILED_QUEUE_INSTANCES + 2) × DB_POOL_MAX
-default ≈ (2 + 1 + 2) × 5 = 25 koneksi
+total ≈ (PM2_QUEUE_INSTANCES + PM2_ADIRA_QUEUE_INSTANCES + PM2_FAILED_QUEUE_INSTANCES + 2) × DB_POOL_MAX
+default ≈ (2 + 2 + 1 + 2) × 10 = 70 koneksi
 ```
+
+Pastikan nilai tidak melebihi `DB_MAX_CONNECTIONS_BUDGET` dan `max_connections` PostgreSQL.
 
 ## Menjalankan
 
@@ -88,8 +134,11 @@ default ≈ (2 + 1 + 2) × 5 = 25 koneksi
 # API server saja
 npm run server
 
-# Worker queue
+# Worker queue utama
 npm run queue
+
+# Worker queue Adira
+npm run queue:adira
 
 # Worker failed queue
 npm run failed-queue
@@ -145,7 +194,11 @@ Kirim payload ke antrean RabbitMQ.
       "template_name": "hello_world",
       "language": "id"
     },
-    "params_data": ["Budi"]
+    "params_data": ["Budi"],
+    "channel_data": {
+      "customer_name": "Budi",
+      "contract_number": "050825118438"
+    }
   }
 }
 ```
@@ -176,9 +229,12 @@ Proses broadcast langsung tanpa queue (berguna untuk testing).
     "id": 10,
     "template_name": "hello_world",
     "language": "id",
-    "category": "marketing"
+    "category": "UTILITY"
   },
-  "params_data": ["Budi"]
+  "params_data": ["Budi"],
+  "channel_data": {
+    "customer_name": "Budi"
+  }
 }
 ```
 
@@ -248,12 +304,16 @@ Proses broadcast langsung tanpa queue (berguna untuk testing).
 }
 ```
 
-## RabbitMQ Queues
+## Scheduler
 
-| Queue | Nama | Keterangan |
-|-------|------|------------|
-| WhatsApp HSM | `broadcast_whatsapp_hsm_queue` | Antrean utama |
-| Failed / DLQ | `broadcast_failed_queue` | Pesan gagal |
+Scheduler berjalan setiap menit (configurable via `SCHEDULER_CRON`) dan:
+
+1. Membaca `omnichannel.broadcast_schedule` dengan status `pending` dan `schedule_at <= now()` menggunakan `FOR UPDATE SKIP LOCKED` (aman untuk multi-instance)
+2. Mengubah status ke `processing` agar tidak diambil instance lain
+3. Membaca `omnichannel.broadcast_recipients` per broadcast menggunakan **keyset pagination** (`id > lastId LIMIT pageSize`) — aman untuk jutaan baris
+4. Mempublish payload penerima ke queue dalam batch kecil dengan delay `SCHEDULER_PUBLISH_DELAY_MS`
+5. Merutekan ke `broadcast_whatsapp_hsm_adira` jika `client`/`provider` mengandung `adira`, selain itu ke `broadcast_whatsapp_hsm_queue`
+6. Mengubah status `broadcast_schedule` ke `completed` setelah selesai
 
 ## Testing
 
@@ -279,7 +339,7 @@ Untuk blast **puluhan ribu pesan**, baca panduan lengkap:
 Ringkasan:
 - Blast di-buffer RabbitMQ, worker proses terkontrol (bukan spike langsung ke API/DB)
 - Default ~80 msg/detik → 50.000 pesan ≈ 10 menit
-- Total koneksi DB default ≈ 35 — jangan melebihi `max_connections` PostgreSQL
+- Total koneksi DB default ≈ 70 — jangan melebihi `max_connections` PostgreSQL dan `DB_MAX_CONNECTIONS_BUDGET`
 
 ## Postman
 
@@ -303,14 +363,22 @@ docs/postman/broadcast-system-node.postman_environment.json
 src/
 ├── api/                  # REST controllers & routes
 ├── config/               # database, rabbitmq, constants, metrics
-├── helpers/              # concurrency, graceful_shutdown, response
+├── helpers/              # concurrency, graceful_shutdown, failed_message,
+│                         # publish_recipients, capacity, response
 ├── queue/                # rabbitmq_manager
-├── repositories/         # DB access layer
+├── repositories/         # DB access layer (broadcast, external_api, log)
 ├── services/
-│   ├── broadcast_listener.js
-│   ├── broadcast_manager.js
-│   └── whatsapp/         # 1engage, damcorp providers
-└── workers/              # PM2 worker scripts
+│   ├── broadcast_listener.js   # Core: listen() & failed() handler
+│   ├── broadcast_manager.js    # Orkestrasi publish & listen via API
+│   ├── broadcast_publisher.js  # Publish ke RabbitMQ
+│   └── whatsapp/               # Provider: 1engage, damcorp
+│       └── utils/              # content, media, phone utilities
+├── workers/
+│   ├── broadcast_worker.js       # Consumer queue umum
+│   ├── broadcast_adira_worker.js # Consumer queue Adira
+│   ├── failed_worker.js          # Consumer dead-letter queue
+│   └── monitor_worker.js         # PM2 crash alert
+└── scheduler.js          # Cron broadcast terjadwal
 ```
 
 ## Troubleshooting
@@ -321,6 +389,8 @@ src/
 | `got[method] is not a function` | got v15 CJS | Sudah di-handle via `got.default` |
 | Meta error `enum quick_reply` | Parameter button salah | Gunakan `type: "payload"` bukan `quick_reply` |
 | Worker log merah "failed" di Dokploy | Kata "failed" di log message | Bukan error — cek PM2 status |
+| `channel_data` tidak tersimpan | Dikirim sebagai object bukan string | Sudah di-handle via `JSON.stringify` di repository |
+| Scheduler skip tick | Cron sebelumnya masih berjalan | Normal — guard `isRunning` mencegah overlap |
 
 ## License
 

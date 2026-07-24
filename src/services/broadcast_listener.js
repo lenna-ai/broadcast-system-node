@@ -4,6 +4,7 @@ const { normalizeRecipients } = require('./whatsapp/utils/phone_utility');
 const OneEngageService = require('./whatsapp/one_engage_service');
 const DamcorpService = require('./whatsapp/damcorp_service');
 const { saveBroadcastMessage } = require('../repositories/broadcast_repository');
+const { withParsedIntegrationData } = require('../helpers/integration_data');
 //HELPERS RESPONSE
 
 
@@ -30,9 +31,7 @@ class BroadcastListener {
                 let footer = null;
                 let button = null;
 
-                const integrationData = typeof integration.integration_data === 'string' 
-                    ? JSON.parse(integration.integration_data) 
-                    : (integration.integration_data || {});
+                const integrationData = withParsedIntegrationData(integration).integration_data;
 
                 if (request.template?.header) {
                     const headerData = typeof request.template.header === 'string' ? JSON.parse(request.template.header) : request.template.header;
@@ -72,7 +71,7 @@ class BroadcastListener {
                 let response = null;
                 if (provider === '1engage') {
                     try {
-                        const service = new OneEngageService(integration);
+                        const service = new OneEngageService(withParsedIntegrationData(integration));
                         await service.init(trx);
                         response = await service.sendHsm(phone, request, optional, trx);
 
@@ -85,7 +84,7 @@ class BroadcastListener {
                 } else if (provider === 'damcorp') {
                     // Proses damcorp
                     try {
-                        const service = new DamcorpService(integration);
+                        const service = new DamcorpService(withParsedIntegrationData(integration));
                         await service.init(trx);
                         response = await service.handle(phone, request, optional, trx);
                         return response;

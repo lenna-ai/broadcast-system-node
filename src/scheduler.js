@@ -84,8 +84,6 @@ const runSchedulerTick = async () => {
             return rows;
         });
 
-        console.log(`[scheduler] tick pending=${pendingBroadcasts.length} tz=${APP_TIMEZONE}`);
-
         if (pendingBroadcasts.length > 0) {
             logCapacityReport('scheduler');
         }
