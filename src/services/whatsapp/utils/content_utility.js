@@ -37,7 +37,111 @@ const buildCarouselHeaderComponent = (link) => {
     };
 };
 
-const buildCarouselBodyComponent = (bodyParams) => {
+const normalizeBodyParameter = (param) => {
+    if (param && typeof param === 'object' && param.type === 'text') {
+        return { type: 'text', text: String(param.text) };
+    }
+    return normalizeTextParameter(param);
+};
+
+const isMetaTextParameters = (parameters) =>
+    Array.isArray(parameters)
+    && parameters.length > 0
+    && parameters.every((param) => param?.type === 'text' && param.text != null);
+
+const parseJsonIfString = (value) => {
+    if (typeof value !== 'string') return value;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+};
+
+const extractCarouselCardsFromComponents = (components) => {
+    const parsed = parseJsonIfString(components);
+    if (!Array.isArray(parsed)) return null;
+
+    for (const component of parsed) {
+        const type = (component?.type || '').toLowerCase();
+        if (type === 'carousel' && Array.isArray(component.cards) && component.cards.length) {
+            return component.cards;
+        }
+    }
+
+    return null;
+};
+
+const resolveCarouselCards = (request, paramsData = null) => {
+    const cardParamsList = Array.isArray(paramsData?.cards) ? paramsData.cards : null;
+
+    const enrichCard = (card, index) => ({
+        ...card,
+        body_params: card.body_params
+            || card.params
+            || card.params_data
+            || (cardParamsList?.[index] ?? []),
+    });
+
+    const fromComponents = extractCarouselCardsFromComponents(request?.components)
+        || extractCarouselCardsFromComponents(request?.template?.components);
+
+    if (fromComponents?.length) {
+        return fromComponents.map((card, index) => enrichCard(card, index));
+    }
+
+    if (Array.isArray(request?.carousel_cards) && request.carousel_cards.length) {
+        return request.carousel_cards.map((card, index) => enrichCard(card, index));
+    }
+
+    return (request?.template?.cards || []).map((card, index) => enrichCard(card, index));
+};
+
+const PLACEHOLDER_REGEX = /\{\{\d+\}\}/g;
+
+const hasPlaceholders = (text) => typeof text === 'string' && PLACEHOLDER_REGEX.test(text);
+
+const resolveBodyParams = (component, cardData = {}) => {
+    if (Array.isArray(component?.body_params) && component.body_params.length) {
+        return component.body_params;
+    }
+    if (Array.isArray(component?.parameters) && component.parameters.length) {
+        return component.parameters;
+    }
+    if (Array.isArray(component?.params) && component.params.length) {
+        return component.params;
+    }
+    if (Array.isArray(cardData?.body_params) && cardData.body_params.length) {
+        return cardData.body_params;
+    }
+    if (Array.isArray(cardData?.params) && cardData.params.length) {
+        return cardData.params;
+    }
+    return [];
+};
+
+const buildBodyParametersFromText = (text, bodyParams = []) => {
+    if (!hasPlaceholders(text)) {
+        return [];
+    }
+
+    return bodyParams.map((param) => {
+        if (param && typeof param === 'object' && param.type) {
+            return param;
+        }
+        return normalizeTextParameter(param);
+    });
+};
+
+const buildCarouselBodyComponent = (bodyParams, bodyText = null) => {
+    if (bodyText != null) {
+        const parameters = buildBodyParametersFromText(bodyText, bodyParams);
+        if (!hasPlaceholders(bodyText)) {
+            return { type: 'body', parameters: [] };
+        }
+        return { type: 'body', parameters };
+    }
+
     if (!bodyParams?.length) return null;
 
     const parameters = bodyParams.map((param) => {
@@ -107,7 +211,7 @@ const convertTemplateButtonToMeta = (button, index) => {
     };
 };
 
-const convertCardComponentsToMeta = (components) => {
+const convertCardComponentsToMeta = (components, cardData = {}) => {
     const result = [];
     let buttonIndex = 0;
 
@@ -115,7 +219,27 @@ const convertCardComponentsToMeta = (components) => {
         const normalizedType = (component.type || '').toLowerCase();
 
         if (['header', 'body', 'button'].includes(normalizedType) && component.parameters) {
-            result.push(normalizeMetaCarouselComponent({ ...component, type: normalizedType }));
+            if (normalizedType === 'body') {
+                const bodyText = component.text ?? component.body ?? null;
+
+                if (isMetaTextParameters(component.parameters) && (bodyText == null || !hasPlaceholders(bodyText))) {
+                    result.push({
+                        type: 'body',
+                        parameters: component.parameters.map(normalizeBodyParameter),
+                    });
+                    return;
+                }
+
+                const bodyParams = resolveBodyParams(component, cardData);
+                const parameters = bodyText != null
+                    ? buildBodyParametersFromText(bodyText, bodyParams.length ? bodyParams : component.parameters)
+                    : component.parameters.map(normalizeBodyParameter);
+
+                result.push({ type: 'body', parameters });
+            } else {
+                result.push(normalizeMetaCarouselComponent({ ...component, type: normalizedType }));
+            }
+
             if (normalizedType === 'button') {
                 buttonIndex += 1;
             }
@@ -132,9 +256,10 @@ const convertCardComponentsToMeta = (components) => {
 
         if (type === 'BODY') {
             if (component.text !== undefined && component.text !== null) {
+                const bodyParams = resolveBodyParams(component, cardData);
                 result.push({
                     type: 'body',
-                    parameters: [normalizeTextParameter(component.text)],
+                    parameters: buildBodyParametersFromText(component.text, bodyParams),
                 });
             }
             return;
@@ -161,12 +286,15 @@ const buildCarouselCard = (cardData, cardIndex) => {
     let components = [];
 
     if (cardData.components?.length > 0) {
-        components = convertCardComponentsToMeta(cardData.components);
+        components = convertCardComponentsToMeta(cardData.components, cardData);
     } else {
         const header = buildCarouselHeaderComponent(cardData.header_params?.link || cardData.header_params?.mediaUrl);
         if (header) components.push(header);
 
-        const body = buildCarouselBodyComponent(cardData.body_params);
+        const body = buildCarouselBodyComponent(
+            cardData.body_params,
+            cardData.body ?? cardData.body_text ?? null
+        );
         if (body) components.push(body);
 
         if (Array.isArray(cardData.button_params)) {
@@ -177,7 +305,7 @@ const buildCarouselCard = (cardData, cardIndex) => {
     }
 
     return {
-        card_index: cardIndex,
+        card_index: cardData.card_index ?? cardIndex,
         components,
     };
 };
@@ -426,5 +554,7 @@ const damcorpContent = (optional) => {
 
 
 module.exports = {
-    getContentProvider
-}
+    getContentProvider,
+    extractCarouselCardsFromComponents,
+    resolveCarouselCards,
+};

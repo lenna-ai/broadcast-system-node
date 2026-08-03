@@ -5,6 +5,7 @@ const OneEngageService = require('./whatsapp/one_engage_service');
 const DamcorpService = require('./whatsapp/damcorp_service');
 const { saveBroadcastMessage } = require('../repositories/broadcast_repository');
 const { withParsedIntegrationData } = require('../helpers/integration_data');
+const { resolveCarouselCards } = require('./whatsapp/utils/content_utility');
 //HELPERS RESPONSE
 
 
@@ -55,16 +56,21 @@ class BroadcastListener {
                 footer = request.template.footer ? (typeof request.template.footer === 'string' ? JSON.parse(request.template.footer) : request.template.footer) : null;
                 button = request.template.button ? (typeof request.template.button === 'string' ? JSON.parse(request.template.button) : request.template.button) : null;
 
+                const paramsData = request?.params_data;
+                const normalizedParams = Array.isArray(paramsData)
+                    ? paramsData
+                    : (paramsData?.body || []);
+
                 const optional = {
                     header: header,
                     footer: footer,
                     button: button,
                     broadcast_id: request?.broadcast_id,
                     category: request?.template?.category,
-                    params: request?.params_data || [],
+                    params: normalizedParams,
                 };
                 if (request.template.type === 'carousel') {
-                    optional.carousel_cards = request?.template?.cards || [];
+                    optional.carousel_cards = resolveCarouselCards(request, paramsData);
                 }
 
                 provider = integrationData.apiService || provider;

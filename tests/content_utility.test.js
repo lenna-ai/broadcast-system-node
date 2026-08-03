@@ -38,6 +38,48 @@ const carouselPayload = {
     ],
 };
 
+const dynamicCarouselPayload = {
+    params: ['Rans', '10', '12 Desember 2026', 'Gas'],
+    carousel_cards: [
+        {
+            body_params: ['10', 'Rans'],
+            components: [
+                {
+                    type: 'HEADER',
+                    format: 'IMAGE',
+                    mediaUrl: 'https://example.com/card-1.jpg',
+                },
+                {
+                    type: 'BODY',
+                    text: '✨ Produk Favorit Minggu Ini! Diskon hingga {{1}}% khusus untuk {{2}}',
+                },
+                {
+                    type: 'BUTTONS',
+                    buttons: [{ type: 'QUICK_REPLY', text: 'reply 1' }],
+                },
+            ],
+        },
+        {
+            body_params: ['20', 'Budi'],
+            components: [
+                {
+                    type: 'HEADER',
+                    format: 'IMAGE',
+                    mediaUrl: 'https://example.com/card-2.jpg',
+                },
+                {
+                    type: 'BODY',
+                    text: '✨ Produk Favorit Minggu Ini! Diskon hingga {{1}}% khusus untuk {{2}}',
+                },
+                {
+                    type: 'BUTTONS',
+                    buttons: [{ type: 'QUICK_REPLY', text: 'reply 2' }],
+                },
+            ],
+        },
+    ],
+};
+
 describe('content_utility carousel', () => {
     it('builds damcorp carousel without throwing', () => {
         expect(() => getContentProvider('damcorp', carouselPayload)).not.toThrow();
@@ -55,5 +97,80 @@ describe('content_utility carousel', () => {
 
     it('builds 1engage carousel without throwing', () => {
         expect(() => getContentProvider('1engage', carouselPayload)).not.toThrow();
+    });
+
+    it('maps carousel card body placeholders to body_params for damcorp', () => {
+        const components = getContentProvider('damcorp', dynamicCarouselPayload);
+        const carousel = components.find((c) => c.type === 'carousel');
+        const cardBody = carousel.cards[0].components.find((c) => c.type === 'body');
+
+        expect(cardBody.parameters).toEqual([
+            { type: 'text', text: '10' },
+            { type: 'text', text: 'Rans' },
+        ]);
+        expect(cardBody.parameters.some((p) => p.text.includes('{{1}}'))).toBe(false);
+    });
+
+    it('uses empty body parameters for static carousel card text', () => {
+        const components = getContentProvider('damcorp', carouselPayload);
+        const carousel = components.find((c) => c.type === 'carousel');
+        const cardBody = carousel.cards[0].components.find((c) => c.type === 'body');
+
+        expect(cardBody.parameters).toEqual([]);
+    });
+
+    it('prefers template.components carousel cards with ready-to-send body params', () => {
+        const { resolveCarouselCards, getContentProvider: getContent } = require('../src/services/whatsapp/utils/content_utility');
+
+        const request = {
+            params_data: ['Rans', '10', '12 Desember 2026', 'Gas'],
+            template: {
+                type: 'carousel',
+                cards: [{
+                    components: [{
+                        type: 'BODY',
+                        text: '✨ Diskon hingga {{1}}% khusus untuk {{2}}',
+                    }],
+                }],
+                components: [{
+                    type: 'CAROUSEL',
+                    cards: [{
+                        card_index: 0,
+                        components: [
+                            {
+                                type: 'HEADER',
+                                format: 'IMAGE',
+                                parameters: [{ type: 'image', image: { link: 'https://example.com/1.png' } }],
+                            },
+                            {
+                                type: 'BODY',
+                                parameters: [
+                                    { type: 'text', text: 'Loh' },
+                                    { type: 'text', text: 'Iya' },
+                                ],
+                            },
+                        ],
+                    }],
+                }],
+            },
+        };
+
+        const resolvedCards = resolveCarouselCards(request, request.params_data);
+        expect(resolvedCards[0].components[1].parameters).toEqual([
+            { type: 'text', text: 'Loh' },
+            { type: 'text', text: 'Iya' },
+        ]);
+
+        const output = getContent('damcorp', {
+            params: request.params_data,
+            carousel_cards: resolvedCards,
+        });
+        const carousel = output.find((c) => c.type === 'carousel');
+        const cardBody = carousel.cards[0].components.find((c) => c.type === 'body');
+
+        expect(cardBody.parameters).toEqual([
+            { type: 'text', text: 'Loh' },
+            { type: 'text', text: 'Iya' },
+        ]);
     });
 });
