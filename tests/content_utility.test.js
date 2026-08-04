@@ -173,4 +173,21 @@ describe('content_utility carousel', () => {
             { type: 'text', text: 'Iya' },
         ]);
     });
+
+    it('uses text key for damcorp text header parameters', () => {
+        const components = getContentProvider('damcorp', {
+            params: ['abc', 'asdasd'],
+            header: {
+                headerType: 'text',
+                textHeader: 'HEADERNYA',
+            },
+        });
+
+        const header = components.find((c) => c.type === 'header');
+        expect(header.parameters[0]).toEqual({
+            type: 'text',
+            text: 'HEADERNYA',
+        });
+        expect(header.parameters[0]).not.toHaveProperty('data');
+    });
 });

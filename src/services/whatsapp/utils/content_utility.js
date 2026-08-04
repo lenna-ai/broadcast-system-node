@@ -466,9 +466,9 @@ const damcorpContent = (optional) => {
             if (headerType === 'text' && header.textHeader) {
                 headerContent = {
                     type: 'text',
-                    data: header.textHeader
+                    text: header.textHeader,
                 };
-            } 
+            }
 
             else if ([
                 'media', 
