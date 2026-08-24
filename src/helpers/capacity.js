@@ -16,6 +16,12 @@ const getWorkerCounts = () => ({
 
 const getPoolMax = () => parseIntEnv('DB_POOL_MAX', 5);
 
+const capToPool = (requested, poolMax = getPoolMax()) => {
+    const value = parseInt(requested, 10);
+    const resolved = Number.isFinite(value) ? value : poolMax;
+    return Math.max(1, Math.min(resolved, poolMax));
+};
+
 const getTotalDbConnections = () => {
     const workers = getWorkerCounts();
     const processes = workers.queue + workers.adira + workers.failed + workers.fixed;
@@ -43,7 +49,7 @@ const validateCapacityConfig = () => {
     const chunkSize = parseIntEnv('SCHEDULER_CHUNK_SIZE', 25);
     const maxBatch = parseIntEnv('MAX_QUEUE_BATCH_SIZE', 25);
     const totalDb = getTotalDbConnections();
-    const dbBudget = parseIntEnv('DB_MAX_CONNECTIONS_BUDGET', 80);
+    const dbBudget = parseIntEnv('DB_MAX_CONNECTIONS_BUDGET', 40);
 
     if (prefetch > poolMax) {
         warnings.push(`RABBITMQ_PREFETCH (${prefetch}) > DB_POOL_MAX (${poolMax}) — risk pool exhaustion`);
@@ -91,4 +97,5 @@ module.exports = {
     getEstimatedThroughputPerSecond,
     validateCapacityConfig,
     logCapacityReport,
+    capToPool,
 };

@@ -7,7 +7,7 @@ const { closeRabbitMQ } = require('../config/rabbitmq');
 const { runWithConcurrencyLimit } = require('./concurrency');
 const { normalizeWhatsappQueuePayload } = require('./failed_message');
 const { registerGracefulShutdown } = require('./graceful_shutdown');
-const { logCapacityReport } = require('./capacity');
+const { logCapacityReport, capToPool } = require('./capacity');
 const { setTimeout: sleep } = require('timers/promises');
 
 const parseIntEnv = (key, fallback) => {
@@ -29,10 +29,13 @@ const startQueueWorker = ({
     throttleEnvKey = 'BROADCAST_THROTTLE_MS',
 }) => {
     const { poolConfig } = db;
-    const prefetchCount = parseIntEnv('RABBITMQ_PREFETCH', poolConfig.max);
+    const prefetchCount = capToPool(
+        parseIntEnv('RABBITMQ_PREFETCH', poolConfig.max),
+        poolConfig.max
+    );
     const throttleMs = parseIntEnv(throttleEnvKey, parseIntEnv('BROADCAST_THROTTLE_MS', 50));
     const maxBatchSize = parseIntEnv('MAX_QUEUE_BATCH_SIZE', 25);
-    const concurrency = Math.min(poolConfig.max, prefetchCount);
+    const concurrency = prefetchCount;
 
     const start = async () => {
         await RabbitMQManager.connect();

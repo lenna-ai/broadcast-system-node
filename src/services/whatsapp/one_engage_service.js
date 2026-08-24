@@ -54,9 +54,7 @@ class OneEngageService {
 
         const authHeader = this.getAuthHeader(this.integration?.integration_data || []);
         const payload = {...baseRequestData, to: phone};
-        // =====================================================================
-        // Send Request
-        // =====================================================================
+        const query = trx || this.db;
         let response = null;
         try {
             response = await sendBroadcast(this.endpoint?.method, requestEndpoint, {
@@ -65,7 +63,6 @@ class OneEngageService {
                 responseType: 'json'
             });
         } catch (error) {
-            // API LOG
             const err = error.response?.body || error.message;
             console.error("Failed to send broadcast:", err);
             await insertApiLog({
@@ -74,7 +71,7 @@ class OneEngageService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: requestEndpoint,
-            }, trx);
+            }, query);
 
             throw error;
         }
@@ -103,7 +100,7 @@ class OneEngageService {
         }
 
         // save broadcast message
-        await saveBroadcastMessage(request, resData, payload, trx);
+        await saveBroadcastMessage(request, resData, payload, query);
         // add api log
         
         return resData;

@@ -99,8 +99,9 @@ Salin dari `.env.example`. Variabel penting:
 | `RABBITMQ_URL` | — | Connection string RabbitMQ |
 | `DB_HOST` / `DB_*` | — | Kredensial PostgreSQL |
 | `DB_POOL_MAX` | `5` | Max koneksi pool per proses PM2 |
-| `RABBITMQ_PREFETCH` | `5` | Prefetch consumer queue utama (≤ `DB_POOL_MAX`) |
-| `RABBITMQ_FAILED_PREFETCH` | `5` | Prefetch consumer failed queue |
+| `DB_POOL_MIN` | `1` | Idle connection per proses (jangan 2+ di shared Postgres) |
+| `RABBITMQ_PREFETCH` | `5` | Prefetch consumer queue utama (di-cap ke `DB_POOL_MAX`) |
+| `RABBITMQ_FAILED_PREFETCH` | `3` | Prefetch consumer failed queue (di-cap ke `DB_POOL_MAX`) |
 | `PM2_QUEUE_INSTANCES` | `2` | Jumlah worker queue umum |
 | `PM2_ADIRA_QUEUE_INSTANCES` | `2` | Jumlah worker queue Adira |
 | `PM2_FAILED_QUEUE_INSTANCES` | `1` | Jumlah worker failed queue |
@@ -114,14 +115,14 @@ Salin dari `.env.example`. Variabel penting:
 | `SCHEDULER_PUBLISH_DELAY_MS` | `10` | Delay antar publish batch scheduler (ms) |
 | `APP_TIMEZONE` | `Asia/Jakarta` | Timezone scheduler & timestamp |
 | `WHATSAPP_CHANNEL_ID` | `4` | ID channel WhatsApp di DB |
-| `DB_MAX_CONNECTIONS_BUDGET` | `80` | Batas total koneksi DB yang boleh dipakai |
+| `DB_MAX_CONNECTIONS_BUDGET` | `40` | Batas total koneksi DB yang boleh dipakai |
 | `ENABLE_STRESS_ENDPOINT` | `false` | Aktifkan `/monitor/stress-db` |
 
 **Perhitungan koneksi DB:**
 
 ```
 total ≈ (PM2_QUEUE_INSTANCES + PM2_ADIRA_QUEUE_INSTANCES + PM2_FAILED_QUEUE_INSTANCES + 2) × DB_POOL_MAX
-default ≈ (2 + 2 + 1 + 2) × 10 = 70 koneksi
+default ≈ (2 + 2 + 1 + 2) × 5 = 35 koneksi
 ```
 
 Pastikan nilai tidak melebihi `DB_MAX_CONNECTIONS_BUDGET` dan `max_connections` PostgreSQL.
@@ -339,7 +340,7 @@ Untuk blast **puluhan ribu pesan**, baca panduan lengkap:
 Ringkasan:
 - Blast di-buffer RabbitMQ, worker proses terkontrol (bukan spike langsung ke API/DB)
 - Default ~80 msg/detik → 50.000 pesan ≈ 10 menit
-- Total koneksi DB default ≈ 70 — jangan melebihi `max_connections` PostgreSQL dan `DB_MAX_CONNECTIONS_BUDGET`
+- Total koneksi DB default ≈ 35 — jangan melebihi `max_connections` PostgreSQL dan `DB_MAX_CONNECTIONS_BUDGET`
 
 ## Postman
 

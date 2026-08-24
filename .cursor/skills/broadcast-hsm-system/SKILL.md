@@ -13,10 +13,10 @@ Node.js service that broadcasts WhatsApp HSM (template) messages at scale via Ra
 API / scheduler (producer)
    └─ publish → RabbitMQ (broadcast_whatsapp_hsm_queue)
         └─ broadcast_worker (PM2 cluster, prefetch=N)
-             └─ BroadcastListener.listen()  [1 DB transaction per message]
+             └─ BroadcastListener.listen()  [short DB trx for reads, HTTP without holding a connection, short write]
                   └─ provider service (1engage | damcorp)
                        └─ sendBroadcast() → WhatsApp API
-                       └─ saveBroadcastMessage() [same trx]
+                       └─ saveBroadcastMessage() [separate short write]
         on failure → publish to broadcast_failed_queue (per item)
              └─ failed_worker → BroadcastListener.failed()
 ```
@@ -36,9 +36,9 @@ Queues/exchanges are defined in `src/config/constants.js`. Failed queue is the D
 The core rule: **one pooled connection per message, and never exceed the pool.**
 
 - Pool configured in `src/config/database.js` via env: `DB_POOL_MIN`, `DB_POOL_MAX`, `DB_POOL_ACQUIRE_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`. Exposes `poolConfig` and `getPoolStats()`.
-- `BroadcastListener.listen()` opens **one** `db.transaction(trx)` and threads `trx` into every query, provider `init(trx)`, `sendHsm(...,trx)`, `saveBroadcastMessage(...,trx)`, `insertApiLog(...,trx)`. Do not open a second transaction/connection inside a message.
+- `BroadcastListener.listen()` loads integration/template/endpoints in a **short** `db.transaction`, then calls the provider HTTP **without** holding that connection. Writes (`saveBroadcastMessage`, `insertApiLog`) use a separate short query/transaction. Never open unbounded parallel DB work — still one in-flight DB connection per message at a time.
 - Worker concurrency is capped with `runWithConcurrencyLimit(items, fn, poolConfig.max)` (`src/helpers/concurrency.js`) — never use unbounded `Promise.all` over a batch.
-- RabbitMQ prefetch must be `<= DB_POOL_MAX` per process: `RABBITMQ_PREFETCH` (main), `RABBITMQ_FAILED_PREFETCH` (failed).
+- RabbitMQ prefetch is capped to `DB_POOL_MAX` at runtime via `capToPool()` (`src/helpers/capacity.js`).
 - Total Postgres connections ≈ `Σ(PM2 instances × DB_POOL_MAX)`. Check against PG `max_connections` when changing `instances` in `ecosystem.config.js`.
 
 Symptom of misconfig: `Knex: Timeout acquiring a connection. The pool is probably full.` → reduce prefetch/concurrency or raise pool/PG limits.
@@ -82,6 +82,7 @@ Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`.
 - **Prefetch**: `RABBITMQ_PREFETCH` and `RABBITMQ_FAILED_PREFETCH` ≤ `DB_POOL_MAX` per process.
 - **No metrics HTTP server in workers** — `config/metrics.js` only exports counters; never bind a port from worker imports (was port 3000 conflict).
 - **Graceful shutdown**: workers and server register `SIGTERM`/`SIGINT` via `helpers/graceful_shutdown.js` → close RabbitMQ + `db.destroy()`.
+- **DB startup**: `config/database.js` retries `SELECT 1` (default 20 × 3s) instead of immediately `process.exit(1)` so Postgres recovery (`starting up`) does not crash-loop PM2.
 - **Security**: `ENABLE_STRESS_ENDPOINT=false` in production (disables `/api/monitor/stress-db`). Health check at `GET /api/health`.
 - **Scheduler**: single instance only; overlap guard + `FOR UPDATE SKIP LOCKED` in transaction; `SCHEDULER_CHUNK_SIZE` default 50 (not 100).
 - **Docker**: multi-stage build, non-root user, `pm2-runtime --env production`, healthcheck on `/api/health`.

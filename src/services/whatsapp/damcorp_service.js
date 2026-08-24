@@ -25,9 +25,9 @@ class DamcorpService {
         // Implement initialization logic here
     }
 
-    async handle(phone, request, optional, trx = this.db) {
-        this.trx = trx;
-        // CHECK API TOKEN
+    async handle(phone, request, optional, trx = null) {
+        const query = trx || this.db;
+        this.trx = query;
         try {
             this.integration = await this.apiToken(this.integration);
         } catch (error) {
@@ -55,9 +55,7 @@ class DamcorpService {
         const authHeader = this.getAuthHeader(this.integration?.integration_data || {});
         const url = this.baseUri + this.sendMessageApiUrl?.endpoint;
         let response = null;
-        console.log('payload', JSON.stringify(payload));
         try {
-            // SEND BROADCAST EVENT
             response = await sendBroadcast(this.sendMessageApiUrl?.method, url, {
                 headers: authHeader,
                 json: payload,
@@ -74,7 +72,7 @@ class DamcorpService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: url,
-            }, trx);
+            }, query);
 
             throw error;
         }
@@ -109,7 +107,7 @@ class DamcorpService {
             'message': message
         }
 
-        await saveBroadcastMessage(request, resData, payload, trx);
+        await saveBroadcastMessage(request, resData, payload, query);
         return resData;
     }
 

@@ -1,13 +1,23 @@
 require('dotenv').config();
 const knex = require('knex');
+const { setTimeout: sleep } = require('timers/promises');
+
+const parsePoolInt = (key, fallback) => {
+    const value = parseInt(process.env[key], 10);
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+};
+
+const requestedMin = parsePoolInt('DB_POOL_MIN', 1);
+const requestedMax = Math.max(1, parsePoolInt('DB_POOL_MAX', 5));
+const poolMin = Math.min(requestedMin, requestedMax);
 
 const poolConfig = {
-    min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
-    max: parseInt(process.env.DB_POOL_MAX, 10) || 5,
-    acquireTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE_TIMEOUT, 10) || 30000,
-    idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT, 10) || 30000,
-    createTimeoutMillis: parseInt(process.env.DB_POOL_CREATE_TIMEOUT, 10) || 30000,
-    reapIntervalMillis: parseInt(process.env.DB_POOL_REAP_INTERVAL, 10) || 1000,
+    min: poolMin,
+    max: requestedMax,
+    acquireTimeoutMillis: parsePoolInt('DB_POOL_ACQUIRE_TIMEOUT', 30000),
+    idleTimeoutMillis: parsePoolInt('DB_POOL_IDLE_TIMEOUT', 10000),
+    createTimeoutMillis: parsePoolInt('DB_POOL_CREATE_TIMEOUT', 30000),
+    reapIntervalMillis: parsePoolInt('DB_POOL_REAP_INTERVAL', 1000),
 };
 
 const db = knex({
@@ -22,15 +32,30 @@ const db = knex({
     pool: poolConfig,
 });
 
-if (process.env.NODE_ENV !== 'test') {
-    db.raw('SELECT 1')
-        .then(() => {
+const connectWithRetry = async () => {
+    const attempts = parsePoolInt('DB_CONNECT_RETRIES', 20);
+    const delayMs = parsePoolInt('DB_CONNECT_RETRY_DELAY_MS', 3000);
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+            await db.raw('SELECT 1');
             console.log('📦 DB Connected');
-        })
-        .catch((err) => {
-            console.error('Failed to connect to database:', err.message);
-            process.exit(1);
-        });
+            return;
+        } catch (err) {
+            console.error(
+                `Failed to connect to database (attempt ${attempt}/${attempts}):`,
+                err.message
+            );
+            if (attempt === attempts) {
+                process.exit(1);
+            }
+            await sleep(delayMs);
+        }
+    }
+};
+
+if (process.env.NODE_ENV !== 'test') {
+    connectWithRetry();
 }
 
 const getPoolStats = () => {

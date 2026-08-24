@@ -6,9 +6,13 @@ const { closeRabbitMQ } = require('../config/rabbitmq');
 const { runWithConcurrencyLimit } = require('../helpers/concurrency');
 const { normalizeFailedQueuePayload } = require('../helpers/failed_message');
 const { registerGracefulShutdown } = require('../helpers/graceful_shutdown');
+const { capToPool } = require('../helpers/capacity');
 
 const { poolConfig } = db;
-const failedPrefetch = parseInt(process.env.RABBITMQ_FAILED_PREFETCH, 10) || 5;
+const failedPrefetch = capToPool(
+    parseInt(process.env.RABBITMQ_FAILED_PREFETCH, 10) || 3,
+    poolConfig.max
+);
 
 const startWorker = async () => {
     await RabbitMQManager.connect();

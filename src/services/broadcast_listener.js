@@ -6,112 +6,104 @@ const DamcorpService = require('./whatsapp/damcorp_service');
 const { saveBroadcastMessage } = require('../repositories/broadcast_repository');
 const { withParsedIntegrationData } = require('../helpers/integration_data');
 const { resolveCarouselCards } = require('./whatsapp/utils/content_utility');
-//HELPERS RESPONSE
-
 
 class BroadcastListener {
-    
+
     /**
-     * @param {Object} request
-     * @param {Array} data
+     * Load DB-backed context in a short transaction, then send via provider HTTP
+     * without holding a pooled connection for the API round-trip.
      */
     static async listen(request) {
-        // construct processData
-        return await db.transaction(async (trx) => {
-            try {
-                let provider = '1engage';
-                
-                const { 
-                    integration, 
-                    template,
-                    broadcast 
-                } = await this.validateRequest(request, trx);
-                const phone = normalizeRecipients(request.recipient);
-                
-                let header = null;
-                let footer = null;
-                let button = null;
+        const { service, phone, optional, provider } = await this.prepareSend(request);
 
-                const integrationData = withParsedIntegrationData(integration).integration_data;
-
-                if (request.template?.header) {
-                    const headerData = typeof request.template.header === 'string' ? JSON.parse(request.template.header) : request.template.header;
-                    let textHeaderToSend = headerData.textHeader || null;
-                    const hsmTemplate = request.broadcast?.hsmTemplate;
-                    
-                    if (hsmTemplate?.header?.headerType === 'text') {
-                        const templateText = hsmTemplate.header.textHeader || '';
-                        if (!templateText.includes('{{')) {
-                            textHeaderToSend = null;
-                        }
-                    }
-                    header = {
-                        headerType: headerData.headerType || null,
-                        mediaUrl: headerData.mediaUrl || null,
-                        mediaName: headerData.mediaName || null,
-                        textHeader: textHeaderToSend,
-                    };
-                }
-
-                footer = request.template.footer ? (typeof request.template.footer === 'string' ? JSON.parse(request.template.footer) : request.template.footer) : null;
-                button = request.template.button ? (typeof request.template.button === 'string' ? JSON.parse(request.template.button) : request.template.button) : null;
-
-                const paramsData = request?.params_data;
-                const normalizedParams = Array.isArray(paramsData)
-                    ? paramsData
-                    : (paramsData?.body || []);
-
-                const optional = {
-                    header: header,
-                    footer: footer,
-                    button: button,
-                    broadcast_id: request?.broadcast_id,
-                    category: request?.template?.category,
-                    params: normalizedParams,
-                };
-                if (request.template.type === 'carousel') {
-                    optional.carousel_cards = resolveCarouselCards(request, paramsData);
-                }
-
-                provider = integrationData.apiService || provider;
-                let response = null;
-                if (provider === '1engage') {
-                    try {
-                        const service = new OneEngageService(withParsedIntegrationData(integration));
-                        await service.init(trx);
-                        response = await service.sendHsm(phone, request, optional, trx);
-
-                        return response;
-                    } catch (error) {
-                        console.error(`[Broadcast Listener] 1Engage failed:`, error.message);
-                        throw error;
-                    }
-
-                } else if (provider === 'damcorp') {
-                    // Proses damcorp
-                    try {
-                        const service = new DamcorpService(withParsedIntegrationData(integration));
-                        await service.init(trx);
-                        response = await service.handle(phone, request, optional, trx);
-                        return response;
-                    } catch (error) {
-                        console.error(`[Broadcast Listener] Damcorp failed:`, error.message);
-                        throw error;
-                    }
-                } else if (provider === 'wappin') {
-                    // Proses wappin
-                    return { status: 'wappin_processed' };
-                } else {
-                    throw new Error('Provider not found');
-                }
-
-            } catch (error) {
-                console.error(`[Broadcast Listener] Transaction Failed:`, error.message);
-                // Throw error agar transaksi DB di-rollback otomatis oleh Knex
-                throw error; 
+        try {
+            if (provider === '1engage') {
+                return await service.sendHsm(phone, request, optional);
             }
-        }); 
-        // End of transaction
+            if (provider === 'damcorp') {
+                return await service.handle(phone, request, optional);
+            }
+            if (provider === 'wappin') {
+                return { status: 'wappin_processed' };
+            }
+            throw new Error('Provider not found');
+        } catch (error) {
+            console.error(`[Broadcast Listener] ${provider} failed:`, error.message);
+            throw error;
+        }
+    }
+
+    static async prepareSend(request) {
+        return db.transaction(async (trx) => {
+            const { integration } = await this.validateRequest(request, trx);
+            const phone = normalizeRecipients(request.recipient);
+            const integrationData = withParsedIntegrationData(integration).integration_data;
+            const optional = this.buildOptional(request);
+            const provider = integrationData.apiService || '1engage';
+
+            let service = null;
+            if (provider === '1engage') {
+                service = new OneEngageService(withParsedIntegrationData(integration));
+                await service.init(trx);
+            } else if (provider === 'damcorp') {
+                service = new DamcorpService(withParsedIntegrationData(integration));
+                await service.init(trx);
+            }
+
+            return { service, phone, optional, provider };
+        });
+    }
+
+    static buildOptional(request) {
+        let header = null;
+        let footer = null;
+        let button = null;
+
+        if (request.template?.header) {
+            const headerData = typeof request.template.header === 'string'
+                ? JSON.parse(request.template.header)
+                : request.template.header;
+            let textHeaderToSend = headerData.textHeader || null;
+            const hsmTemplate = request.broadcast?.hsmTemplate;
+
+            if (hsmTemplate?.header?.headerType === 'text') {
+                const templateText = hsmTemplate.header.textHeader || '';
+                if (!templateText.includes('{{')) {
+                    textHeaderToSend = null;
+                }
+            }
+            header = {
+                headerType: headerData.headerType || null,
+                mediaUrl: headerData.mediaUrl || null,
+                mediaName: headerData.mediaName || null,
+                textHeader: textHeaderToSend,
+            };
+        }
+
+        footer = request.template.footer
+            ? (typeof request.template.footer === 'string' ? JSON.parse(request.template.footer) : request.template.footer)
+            : null;
+        button = request.template.button
+            ? (typeof request.template.button === 'string' ? JSON.parse(request.template.button) : request.template.button)
+            : null;
+
+        const paramsData = request?.params_data;
+        const normalizedParams = Array.isArray(paramsData)
+            ? paramsData
+            : (paramsData?.body || []);
+
+        const optional = {
+            header,
+            footer,
+            button,
+            broadcast_id: request?.broadcast_id,
+            category: request?.template?.category,
+            params: normalizedParams,
+        };
+        if (request.template?.type === 'carousel') {
+            optional.carousel_cards = resolveCarouselCards(request, paramsData);
+        }
+        return optional;
     }
 
     static async failed(request) {
@@ -129,14 +121,14 @@ class BroadcastListener {
             broadcastPayload.template = JSON.parse(broadcastPayload.template);
         }
 
-        let resData = {
+        const resData = {
             'to': broadcastPayload.recipient,
             'status': 'failed',
             'msgId': null,
             'trxId': null,
             'message': errorReason,
             'timestamp': failedAt,
-        }
+        };
 
         await saveBroadcastMessage(
             broadcastPayload,
@@ -172,7 +164,7 @@ class BroadcastListener {
         if (!broadcast) {
             throw new Error('Broadcast not found');
         }
-        return { integration, template, broadcast};
+        return { integration, template, broadcast };
     }
 }
 

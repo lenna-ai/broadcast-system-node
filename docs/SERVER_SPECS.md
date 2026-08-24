@@ -8,8 +8,9 @@ Sistem dirancang **async-first**:
 
 1. Producer/scheduler **hanya enqueue** ke RabbitMQ (tidak kirim API langsung massal)
 2. Worker memproses dengan **concurrency terbatas** (= `DB_POOL_MAX`)
-3. RabbitMQ **buffer** beban saat spike (50k pesan tidak langsung hit API/DB sekaligus)
-4. Pesan gagal masuk **DLQ** (`broadcast_failed_queue`), bukan retry loop
+3. Koneksi DB **tidak dipegang** selama HTTP ke WhatsApp — hanya saat query singkat
+4. RabbitMQ **buffer** beban saat spike (50k pesan tidak langsung hit API/DB sekaligus)
+5. Pesan gagal masuk **DLQ** (`broadcast_failed_queue`), bukan retry loop
 
 ```
 Blast 50.000 pesan
@@ -83,7 +84,7 @@ SCHEDULER_RECIPIENT_PAGE_SIZE=1000
 SCHEDULER_PUBLISH_DELAY_MS=10
 BROADCAST_THROTTLE_MS=50
 BROADCAST_ADIRA_THROTTLE_MS=50
-DB_MAX_CONNECTIONS_BUDGET=80
+DB_MAX_CONNECTIONS_BUDGET=40
 ```
 
 ---
@@ -243,4 +244,4 @@ Lihat `.env.example` untuk daftar lengkap. Variabel kunci untuk high volume:
 | `SCHEDULER_RECIPIENT_PAGE_SIZE` | 1000 | Pagination DB saat enqueue |
 | `SCHEDULER_PUBLISH_DELAY_MS` | 10 | Delay antar publish ke RabbitMQ |
 | `BROADCAST_THROTTLE_MS` | 50 | Delay antar kirim sukses |
-| `DB_MAX_CONNECTIONS_BUDGET` | 80 | Budget total koneksi (warning threshold) |
+| `DB_MAX_CONNECTIONS_BUDGET` | 40 | Budget total koneksi (warning threshold) |
