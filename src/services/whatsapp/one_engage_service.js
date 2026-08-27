@@ -29,7 +29,7 @@ class OneEngageService {
         this.baseUri = baseUri;
     }
 
-    async sendHsm(phone, request, optional, trx = this.db) {
+    async sendHsm(phone, request, optional, trx = null) {
         if (!this.endpoint) {
             throw new Error('Api is not defined');
         }
@@ -54,7 +54,6 @@ class OneEngageService {
 
         const authHeader = this.getAuthHeader(this.integration?.integration_data || []);
         const payload = {...baseRequestData, to: phone};
-        const query = trx || this.db;
         let response = null;
         try {
             response = await sendBroadcast(this.endpoint?.method, requestEndpoint, {
@@ -71,7 +70,7 @@ class OneEngageService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: requestEndpoint,
-            }, query);
+            }, trx);
 
             throw error;
         }
@@ -100,7 +99,7 @@ class OneEngageService {
         }
 
         // save broadcast message
-        await saveBroadcastMessage(request, resData, payload, query);
+        await saveBroadcastMessage(request, resData, payload, trx);
         // add api log
         
         return resData;

@@ -6,6 +6,7 @@ const DamcorpService = require('./whatsapp/damcorp_service');
 const { saveBroadcastMessage } = require('../repositories/broadcast_repository');
 const { withParsedIntegrationData } = require('../helpers/integration_data');
 const { resolveCarouselCards } = require('./whatsapp/utils/content_utility');
+const { withDbRetry } = require('../helpers/db_retry');
 
 class BroadcastListener {
 
@@ -34,7 +35,7 @@ class BroadcastListener {
     }
 
     static async prepareSend(request) {
-        return db.transaction(async (trx) => {
+        return withDbRetry(() => db.transaction(async (trx) => {
             const { integration } = await this.validateRequest(request, trx);
             const phone = normalizeRecipients(request.recipient);
             const integrationData = withParsedIntegrationData(integration).integration_data;
@@ -51,7 +52,7 @@ class BroadcastListener {
             }
 
             return { service, phone, optional, provider };
-        });
+        }));
     }
 
     static buildOptional(request) {

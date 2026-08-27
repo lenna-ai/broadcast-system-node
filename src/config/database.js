@@ -7,7 +7,7 @@ const parsePoolInt = (key, fallback) => {
     return Number.isFinite(value) && value >= 0 ? value : fallback;
 };
 
-const requestedMin = parsePoolInt('DB_POOL_MIN', 1);
+const requestedMin = parsePoolInt('DB_POOL_MIN', 0);
 const requestedMax = Math.max(1, parsePoolInt('DB_POOL_MAX', 5));
 const poolMin = Math.min(requestedMin, requestedMax);
 
@@ -18,16 +18,21 @@ const poolConfig = {
     idleTimeoutMillis: parsePoolInt('DB_POOL_IDLE_TIMEOUT', 10000),
     createTimeoutMillis: parsePoolInt('DB_POOL_CREATE_TIMEOUT', 30000),
     reapIntervalMillis: parsePoolInt('DB_POOL_REAP_INTERVAL', 1000),
+    createRetryIntervalMillis: 200,
+    propagateCreateError: false,
 };
 
 const db = knex({
     client: 'pg',
+    acquireConnectionTimeout: parsePoolInt('DB_POOL_ACQUIRE_TIMEOUT', 30000),
     connection: {
         host: process.env.DB_HOST || '127.0.0.1',
         port: process.env.DB_PORT || 5432,
         user: process.env.DB_USERNAME,
         password: process.env.DB_PASSWORD,
         database: process.env.DB_DATABASE,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: parsePoolInt('DB_KEEPALIVE_INITIAL_DELAY_MS', 10000),
     },
     pool: poolConfig,
 });

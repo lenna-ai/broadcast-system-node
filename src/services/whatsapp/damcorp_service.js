@@ -3,6 +3,7 @@ const { getExternalApi, getExternalApiWithEndpoints } = require('../../repositor
 const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/broadcast_repository');
 const { getContentProvider } = require('./utils/content_utility');
 const { insertApiLog } = require('../../repositories/log_repository');
+const { isKnexTransaction, withDbRetry } = require('../../helpers/db_retry');
 
 const DateTime = require('luxon').DateTime;
 
@@ -26,8 +27,7 @@ class DamcorpService {
     }
 
     async handle(phone, request, optional, trx = null) {
-        const query = trx || this.db;
-        this.trx = query;
+        this.trx = trx;
         try {
             this.integration = await this.apiToken(this.integration);
         } catch (error) {
@@ -72,7 +72,7 @@ class DamcorpService {
                 response: JSON.stringify(err),
                 number: phone,
                 url: url,
-            }, query);
+            }, trx);
 
             throw error;
         }
@@ -107,7 +107,7 @@ class DamcorpService {
             'message': message
         }
 
-        await saveBroadcastMessage(request, resData, payload, query);
+        await saveBroadcastMessage(request, resData, payload, trx);
         return resData;
     }
 
@@ -182,11 +182,17 @@ class DamcorpService {
         integration.integration_data = data;
 
         const query = this.trx || this.db;
-        await query('omnichannel.integrations')
+        const updateToken = () => query('omnichannel.integrations')
             .where({ id: integration.id })
             .update({
-                integration_data: JSON.stringify(data)
-        });
+                integration_data: JSON.stringify(data),
+            });
+
+        if (isKnexTransaction(query)) {
+            await updateToken();
+        } else {
+            await withDbRetry(updateToken);
+        }
 
         this.integration = integration;
         return integration;

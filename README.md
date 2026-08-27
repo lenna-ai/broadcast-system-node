@@ -99,7 +99,7 @@ Salin dari `.env.example`. Variabel penting:
 | `RABBITMQ_URL` | — | Connection string RabbitMQ |
 | `DB_HOST` / `DB_*` | — | Kredensial PostgreSQL |
 | `DB_POOL_MAX` | `5` | Max koneksi pool per proses PM2 |
-| `DB_POOL_MIN` | `1` | Idle connection per proses (jangan 2+ di shared Postgres) |
+| `DB_POOL_MIN` | `0` | Idle connection per proses (0 = reap semua koneksi idle, hindari TCP drop) |
 | `RABBITMQ_PREFETCH` | `5` | Prefetch consumer queue utama (di-cap ke `DB_POOL_MAX`) |
 | `RABBITMQ_FAILED_PREFETCH` | `3` | Prefetch consumer failed queue (di-cap ke `DB_POOL_MAX`) |
 | `PM2_QUEUE_INSTANCES` | `2` | Jumlah worker queue umum |

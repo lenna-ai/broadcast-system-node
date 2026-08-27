@@ -35,7 +35,7 @@ Queues/exchanges are defined in `src/config/constants.js`. Failed queue is the D
 
 The core rule: **one pooled connection per message, and never exceed the pool.**
 
-- Pool configured in `src/config/database.js` via env: `DB_POOL_MIN`, `DB_POOL_MAX`, `DB_POOL_ACQUIRE_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`. Exposes `poolConfig` and `getPoolStats()`.
+- Pool configured in `src/config/database.js` via env: `DB_POOL_MIN` (default 0), `DB_POOL_MAX`, idle timeout, plus `pg` `keepAlive` so idle TCP is not dropped by firewall/Postgres. Writes retry transient disconnects via `helpers/db_retry.js` — **never retry the WhatsApp HTTP send**.
 - `BroadcastListener.listen()` loads integration/template/endpoints in a **short** `db.transaction`, then calls the provider HTTP **without** holding that connection. Writes (`saveBroadcastMessage`, `insertApiLog`) use a separate short query/transaction. Never open unbounded parallel DB work — still one in-flight DB connection per message at a time.
 - Worker concurrency is capped with `runWithConcurrencyLimit(items, fn, poolConfig.max)` (`src/helpers/concurrency.js`) — never use unbounded `Promise.all` over a batch.
 - RabbitMQ prefetch is capped to `DB_POOL_MAX` at runtime via `capToPool()` (`src/helpers/capacity.js`).

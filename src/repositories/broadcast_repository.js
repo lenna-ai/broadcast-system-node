@@ -2,6 +2,7 @@ const got = require('got').default || require('got');
 const { DateTime } = require('luxon');
 const db = require('../config/database');
 const CONSTANTS = require('../config/constants');
+const { isKnexTransaction, withDbRetry } = require('../helpers/db_retry');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Jakarta';
 const nowInTimezone = () => DateTime.now().setZone(APP_TIMEZONE).toFormat('yyyy-MM-dd HH:mm:ss');
@@ -63,15 +64,15 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
         broadcast_id: request.broadcast_id || null,
     };
 
-    if (trx) {
+    if (isKnexTransaction(trx)) {
         await trx('omnichannel.broadcast_messages').insert(insertData);
         return resData;
     }
 
-    return db.transaction(async (transaction) => {
+    return withDbRetry(() => db.transaction(async (transaction) => {
         await transaction('omnichannel.broadcast_messages').insert(insertData);
         return resData;
-    });
+    }));
 };
 
 module.exports = {
