@@ -52,6 +52,8 @@ class DamcorpService {
             payload.dkd_marketing_type = "marketing_lite";
         }
 
+        console.log('payload', payload);
+
         const authHeader = this.getAuthHeader(this.integration?.integration_data || {});
         const url = this.baseUri + this.sendMessageApiUrl?.endpoint;
         let response = null;
