@@ -4,6 +4,7 @@ const BroadcastListener = require('../services/broadcast_listener');
 const { broadcastCounter } = require('../config/metrics');
 const db = require('../config/database');
 const { closeRabbitMQ } = require('../config/rabbitmq');
+const { closeRedis } = require('../config/redis');
 const { runWithConcurrencyLimit } = require('./concurrency');
 const { normalizeWhatsappQueuePayload } = require('./failed_message');
 const { registerGracefulShutdown } = require('./graceful_shutdown');
@@ -38,6 +39,13 @@ const startQueueWorker = ({
     const concurrency = prefetchCount;
 
     const start = async () => {
+        registerGracefulShutdown(async () => {
+            await closeRabbitMQ();
+            await closeRedis();
+            await db.destroyDb();
+        });
+
+        await db.whenReady();
         await RabbitMQManager.connect();
         logCapacityReport(label);
 
@@ -78,11 +86,6 @@ const startQueueWorker = ({
                 );
             }
         }, prefetchCount);
-
-        registerGracefulShutdown(async () => {
-            await closeRabbitMQ();
-            await db.destroyDb();
-        });
     };
 
     return start().catch((error) => {

@@ -8,6 +8,7 @@ const { fetchAndPublishRecipients } = require('./helpers/publish_recipients');
 const { logCapacityReport } = require('./helpers/capacity');
 const { registerGracefulShutdown } = require('./helpers/graceful_shutdown');
 const { closeRabbitMQ } = require('./config/rabbitmq');
+const { closeRedis } = require('./config/redis');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Jakarta';
 const CRON_EXPRESSION = process.env.SCHEDULER_CRON || '* * * * *';
@@ -100,7 +101,7 @@ const runSchedulerTick = async () => {
             }
         }
     } catch (error) {
-        console.error('[scheduler] error:', error.message);
+        console.error('[scheduler] error:', error.message, db.formatPoolStats());
     } finally {
         isRunning = false;
     }
@@ -111,16 +112,20 @@ if (!cron.validate(CRON_EXPRESSION)) {
     process.exit(1);
 }
 
-cron.schedule(CRON_EXPRESSION, runSchedulerTick, { timezone: APP_TIMEZONE });
-
-console.log(`[scheduler] started cron="${CRON_EXPRESSION}" timezone=${APP_TIMEZONE}`);
-
 registerGracefulShutdown(async () => {
     await closeRabbitMQ();
+    await closeRedis();
     await db.destroyDb();
 });
 
-// Run once on startup so pending items are not waiting a full minute.
-runSchedulerTick().catch((error) => {
-    console.error('[scheduler] startup tick error:', error.message);
+const startScheduler = async () => {
+    await db.whenReady();
+    cron.schedule(CRON_EXPRESSION, runSchedulerTick, { timezone: APP_TIMEZONE });
+    console.log(`[scheduler] started cron="${CRON_EXPRESSION}" timezone=${APP_TIMEZONE}`);
+    await runSchedulerTick();
+};
+
+startScheduler().catch((error) => {
+    console.error('[scheduler] failed to start:', error.message);
+    process.exit(1);
 });

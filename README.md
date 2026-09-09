@@ -56,9 +56,9 @@ broadcast_worker               broadcast_adira_worker
 | App | Script | Mode | Fungsi |
 |-----|--------|------|--------|
 | `broadcast\|server` | `server.js` | fork | REST API |
-| `broadcast\|queue` | `src/workers/broadcast_worker.js` | cluster | Consumer queue umum |
-| `broadcast\|queue\|adira` | `src/workers/broadcast_adira_worker.js` | cluster | Consumer queue Adira |
-| `broadcast\|failed-queue` | `src/workers/failed_worker.js` | cluster | Consumer pesan gagal |
+| `broadcast\|queue` | `src/workers/broadcast_worker.js` | fork | Consumer queue umum |
+| `broadcast\|queue\|adira` | `src/workers/broadcast_adira_worker.js` | fork | Consumer queue Adira |
+| `broadcast\|failed-queue` | `src/workers/failed_worker.js` | fork | Consumer pesan gagal |
 | `broadcast\|scheduler` | `src/scheduler.js` | fork | Cron jadwal broadcast |
 | `broadcast\|monitor` | `src/workers/monitor_worker.js` | fork | Alert crash PM2 |
 
@@ -97,9 +97,13 @@ Salin dari `.env.example`. Variabel penting:
 |----------|---------|------------|
 | `PORT` | `3000` | Port REST API |
 | `RABBITMQ_URL` | — | Connection string RabbitMQ |
+| `RABBITMQ_HEARTBEAT` | `30` | AMQP heartbeat (detik). Worker reconnect otomatis jika CloudAMQP drop / maintenance |
+| `REDIS_HOST` | — | Host Redis untuk cache token Salesforce (`ff-access-token`). Kosong = in-memory saja |
+| `REDIS_PORT` | `6379` | Port Redis |
+| `REDIS_KEY_PREFIX` | — | Prefix key, samakan dengan Laravel `CACHE_PREFIX` jika share Redis dengan PHP |
 | `DB_HOST` / `DB_*` | — | Kredensial PostgreSQL |
 | `DB_POOL_MAX` | `5` | Max koneksi pool per proses PM2 |
-| `DB_POOL_MIN` | `0` | Idle connection per proses (0 = reap semua koneksi idle, hindari TCP drop) |
+| `DB_POOL_MIN` | `1` | Idle connection per proses (1 = scheduler tidak reconnect setiap tick) |
 | `RABBITMQ_PREFETCH` | `5` | Prefetch consumer queue utama (di-cap ke `DB_POOL_MAX`) |
 | `RABBITMQ_FAILED_PREFETCH` | `3` | Prefetch consumer failed queue (di-cap ke `DB_POOL_MAX`) |
 | `PM2_QUEUE_INSTANCES` | `2` | Jumlah worker queue umum |

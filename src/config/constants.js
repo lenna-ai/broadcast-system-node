@@ -5,6 +5,11 @@ module.exports = {
             CLIENT: 'whatsapp',
         },
     },
+    FORWARD: {
+        SALESFORCE_APP_ID: parseInt(process.env.SALESFORCE_APP_ID, 10) || 618,
+        SALESFORCE_TOKEN_CACHE_KEY: process.env.SALESFORCE_TOKEN_CACHE_KEY || 'ff-access-token',
+        SALESFORCE_TOKEN_CACHE_TTL_HOURS: parseInt(process.env.SALESFORCE_TOKEN_CACHE_TTL_HOURS, 10) || 12,
+    },
     RABBITMQ: {
         EXCHANGES: {
             DLX: 'broadcast_failed_exchange',

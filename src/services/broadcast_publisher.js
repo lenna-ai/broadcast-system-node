@@ -1,4 +1,4 @@
-const { getChannel } = require('../config/rabbitmq');
+const { getChannelOrConnect } = require('../config/rabbitmq');
 const CONSTANTS = require('../config/constants');
 
 class BroadcastPublisher {
@@ -9,7 +9,7 @@ class BroadcastPublisher {
      * @param {Object} payload - Data yang mau dikirim
      */
     static async publish(queueName, payload) {
-        const channel = getChannel();
+        const channel = await getChannelOrConnect();
 
         // 🎯 1. Pastikan argument antrean SAMA PERSIS dengan di Worker
         await channel.assertQueue(queueName, {

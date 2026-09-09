@@ -2,12 +2,7 @@ const queueInstances = parseInt(process.env.PM2_QUEUE_INSTANCES, 10) || 2;
 const adiraQueueInstances = parseInt(process.env.PM2_ADIRA_QUEUE_INSTANCES, 10) || queueInstances;
 const failedQueueInstances = parseInt(process.env.PM2_FAILED_QUEUE_INSTANCES, 10) || 1;
 
-const baseAppConfig = {
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    kill_timeout: 10000,
-    listen_timeout: 10000,
+const envBlocks = {
     env: {
         DOTENV_CONFIG_PATH: './.env',
     },
@@ -21,28 +16,45 @@ const baseAppConfig = {
     },
 };
 
+const workerAppConfig = {
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    kill_timeout: 10000,
+    min_uptime: 10000,
+    exp_backoff_restart_delay: 1000,
+    max_restarts: 20,
+    exec_mode: 'fork',
+    ...envBlocks,
+};
+
+const baseAppConfig = {
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    kill_timeout: 10000,
+    ...envBlocks,
+};
+
 module.exports = {
     apps: [
         {
             name: 'broadcast|queue',
             script: './src/workers/broadcast_worker.js',
             instances: queueInstances,
-            exec_mode: 'cluster',
-            ...baseAppConfig,
+            ...workerAppConfig,
         },
         {
             name: 'broadcast|queue|adira',
             script: './src/workers/broadcast_adira_worker.js',
             instances: adiraQueueInstances,
-            exec_mode: 'cluster',
-            ...baseAppConfig,
+            ...workerAppConfig,
         },
         {
             name: 'broadcast|failed-queue',
             script: './src/workers/failed_worker.js',
             instances: failedQueueInstances,
-            exec_mode: 'cluster',
-            ...baseAppConfig,
+            ...workerAppConfig,
         },
         {
             name: 'broadcast|monitor',

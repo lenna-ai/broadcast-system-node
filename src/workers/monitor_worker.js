@@ -43,16 +43,42 @@ pm2.connect((err) => {
       }
 
       if (status === 'exit') {
-        if (alertSent[appName]) {
-          console.log(`[INFO] Alert already sent for [${appName}], skipping duplicate`);
+        if (data.manually) {
+          console.log(`[INFO] ${appName} exited due to PM2 restart/stop`);
           return;
         }
 
-        alertSent[appName] = true;
-        const restartCount = data.process.pm2_env ? data.process.pm2_env.restart_time : 0;
+        pm2.list((listErr, list) => {
+          if (listErr) {
+            console.error('Failed to list PM2 processes:', listErr);
+            return;
+          }
 
-        console.log(`[ALERT] Application ${appName} in ${process.env.APP_ENV || 'development'} has CRASHED/EXIT (Total Restarts: ${restartCount})`);
-        sendEmailAlert(appName, `exit (Crashed/stopped automatically after ${restartCount} restarts)`);
+          const peers = list.filter((proc) => proc.name === appName);
+          const stillOnline = peers.some((proc) => proc.pm2_env && proc.pm2_env.status === 'online');
+          if (stillOnline) {
+            console.log(`[INFO] ${appName} instance exited; other instance(s) still online`);
+            return;
+          }
+
+          setTimeout(() => {
+            pm2.list((laterErr, laterList) => {
+              if (laterErr) {
+                console.error('Failed to list PM2 processes:', laterErr);
+                return;
+              }
+
+              const laterPeers = laterList.filter((proc) => proc.name === appName);
+              const recovered = laterPeers.some((proc) => proc.pm2_env && proc.pm2_env.status === 'online');
+              if (recovered || alertSent[appName]) return;
+
+              alertSent[appName] = true;
+              const restartCount = data.process.pm2_env ? data.process.pm2_env.restart_time : 0;
+              console.log(`[ALERT] Application ${appName} in ${process.env.APP_ENV || 'development'} has CRASHED/EXIT (Total Restarts: ${restartCount})`);
+              sendEmailAlert(appName, `exit (Crashed/stopped automatically after ${restartCount} restarts)`);
+            });
+          }, 5000);
+        });
         return;
       }
 

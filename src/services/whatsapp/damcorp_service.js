@@ -4,6 +4,7 @@ const { sendBroadcast, saveBroadcastMessage } = require('../../repositories/broa
 const { getContentProvider } = require('./utils/content_utility');
 const { insertApiLog } = require('../../repositories/log_repository');
 const { isKnexTransaction, withDbRetry } = require('../../helpers/db_retry');
+const { forwardTo } = require('../salesforce/salesforce_forward');
 
 const DateTime = require('luxon').DateTime;
 
@@ -51,8 +52,6 @@ class DamcorpService {
         if (optional?.category && optional.category.toLowerCase() === 'marketing' && this.integration?.integration_data?.accountMMLite === true) {
             payload.dkd_marketing_type = "marketing_lite";
         }
-
-        console.log('payload', payload);
 
         const authHeader = this.getAuthHeader(this.integration?.integration_data || {});
         const url = this.baseUri + this.sendMessageApiUrl?.endpoint;
@@ -110,7 +109,26 @@ class DamcorpService {
         }
 
         await saveBroadcastMessage(request, resData, payload, trx);
+
+        await this.safeForward(request, phone, resData, response);
+
         return resData;
+    }
+
+    async safeForward(request, phone, resData, response = null) {
+        try {
+            if (response?.error_msg && !request.error_msg) {
+                request.error_msg = response.error_msg;
+            }
+            await forwardTo({
+                integration: this.integration,
+                request,
+                phone,
+                resData,
+            });
+        } catch (error) {
+            console.error('Damcorp forward failed:', error.message);
+        }
     }
 
     getAuthHeader(integration_data = []) {

@@ -12,7 +12,7 @@ Node.js service that broadcasts WhatsApp HSM (template) messages at scale via Ra
 ```
 API / scheduler (producer)
    └─ publish → RabbitMQ (broadcast_whatsapp_hsm_queue)
-        └─ broadcast_worker (PM2 cluster, prefetch=N)
+        └─ broadcast_worker (PM2 fork, prefetch=N)
              └─ BroadcastListener.listen()  [short DB trx for reads, HTTP without holding a connection, short write]
                   └─ provider service (1engage | damcorp)
                        └─ sendBroadcast() → WhatsApp API
@@ -35,13 +35,13 @@ Queues/exchanges are defined in `src/config/constants.js`. Failed queue is the D
 
 The core rule: **one pooled connection per message, and never exceed the pool.**
 
-- Pool configured in `src/config/database.js` via env: `DB_POOL_MIN` (default 0), `DB_POOL_MAX`, idle timeout, plus `pg` `keepAlive` so idle TCP is not dropped by firewall/Postgres. Writes retry transient disconnects via `helpers/db_retry.js` — **never retry the WhatsApp HTTP send**.
+- Pool configured in `src/config/database.js` via env: `DB_POOL_MIN` (default 1), `DB_POOL_MAX`, idle timeout (default 120s), plus `pg` `keepAlive` so idle TCP is not dropped by firewall/Postgres. Writes retry transient disconnects via `helpers/db_retry.js` — **never retry the WhatsApp HTTP send**.
 - `BroadcastListener.listen()` loads integration/template/endpoints in a **short** `db.transaction`, then calls the provider HTTP **without** holding that connection. Writes (`saveBroadcastMessage`, `insertApiLog`) use a separate short query/transaction. Never open unbounded parallel DB work — still one in-flight DB connection per message at a time.
 - Worker concurrency is capped with `runWithConcurrencyLimit(items, fn, poolConfig.max)` (`src/helpers/concurrency.js`) — never use unbounded `Promise.all` over a batch.
 - RabbitMQ prefetch is capped to `DB_POOL_MAX` at runtime via `capToPool()` (`src/helpers/capacity.js`).
 - Total Postgres connections ≈ `Σ(PM2 instances × DB_POOL_MAX)`. Check against PG `max_connections` when changing `instances` in `ecosystem.config.js`.
 
-Symptom of misconfig: `Knex: Timeout acquiring a connection. The pool is probably full.` → reduce prefetch/concurrency or raise pool/PG limits.
+Symptom of misconfig: `Knex: Timeout acquiring a connection. The pool is probably full.` — if it happens on scheduler ticks while workers are fine, the process reaped its idle connection and a new TCP connect hung (VPN/Postgres). Keep `DB_POOL_MIN>=1`. If it happens under load, reduce prefetch/concurrency or raise pool/PG limits.
 
 ## Queue consumers
 
@@ -49,6 +49,7 @@ Symptom of misconfig: `Knex: Timeout acquiring a connection. The pool is probabl
 - `channel.prefetch(prefetchCount)`
 - wrap the callback in try/catch
 - `channel.ack(msg)` on success, `channel.nack(msg, false, false)` on error (dead-letter, no requeue loop)
+- survive CloudAMQP `CONNECTION_FORCED` via reconnect in `config/rabbitmq.js` (heartbeat + backoff) and `restoreConsumers()` — do not `process.exit` on a dropped RMQ socket
 
 Payloads are normalized in `src/helpers/failed_message.js` (`normalizeWhatsappQueuePayload`, `normalizeFailedQueuePayload`) because messages can arrive as a single object, a batch array, or DLX-redelivered raw payloads.
 
@@ -67,11 +68,12 @@ There are **two different JSON shapes** — don't confuse them:
 - Strip the `format` key from card components (Meta error #100 "Unexpected key format").
 
 Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`. Both call `sendBroadcast()` and `saveBroadcastMessage()` from `repositories/broadcast_repository.js`.
+- Damcorp forward is **Frisian Flag only**: `integrations.is_forward` must be true, `app_id` must equal `SALESFORCE_APP_ID` (default 618), and message status must be `sent`. Failed sends are not forwarded. Posts to Salesforce `Whatsapp__c`. Token is cached in Redis as Laravel `ff-access-token` (`{"access_token":"..."}`, TTL 12h) with in-memory fallback if `REDIS_HOST`/`REDIS_URL` is empty. Forward errors go to `api_logs` and must not fail the blast.
 
 ## Known gotchas
 
 - **`got` v15 is ESM-only under CJS** — import as `require('got').default || require('got')` and call `got(endpoint, { method: 'POST', ... })`. Top-level `got.post` is undefined (`got[method] is not a function`).
-- PM2 log lines containing the word "failed" (e.g. failed-queue startup logs) can show red in Dokploy but are just `console.log` info, not crashes. Verify with PM2 status / consumer count before assuming failure.
+- PM2 log lines containing the word "failed" (e.g. failed-queue startup logs) can show red in Dokploy but are just `console.log` info, not crashes. Monitor must not alert when one instance of a multi-instance app exits while another is still online (PM2 restart / cluster SIGINT). Verify with PM2 status / consumer count before assuming failure.
 
 ## Production checklist
 
@@ -81,7 +83,8 @@ Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`.
 - **Batch cap**: `MAX_QUEUE_BATCH_SIZE` limits items per RabbitMQ message; worker splits oversized batches automatically.
 - **Prefetch**: `RABBITMQ_PREFETCH` and `RABBITMQ_FAILED_PREFETCH` ≤ `DB_POOL_MAX` per process.
 - **No metrics HTTP server in workers** — `config/metrics.js` only exports counters; never bind a port from worker imports (was port 3000 conflict).
-- **Graceful shutdown**: workers and server register `SIGTERM`/`SIGINT` via `helpers/graceful_shutdown.js` → close RabbitMQ + `db.destroy()`.
+- **RabbitMQ reconnect**: CloudAMQP `CONNECTION_FORCED` / socket drop must reconnect with heartbeat (`RABBITMQ_HEARTBEAT`, default 30s) and exponential backoff in `config/rabbitmq.js`. Workers re-bind consumers via `restoreConsumers()`. SIGINT/SIGTERM still uses `closeRabbitMQ()` so reconnect does not fight shutdown.
+- **Graceful shutdown**: workers and server register `SIGTERM`/`SIGINT` via `helpers/graceful_shutdown.js` → close RabbitMQ + Redis + `db.destroy()`.
 - **DB startup**: `config/database.js` retries `SELECT 1` (default 20 × 3s) instead of immediately `process.exit(1)` so Postgres recovery (`starting up`) does not crash-loop PM2.
 - **Security**: `ENABLE_STRESS_ENDPOINT=false` in production (disables `/api/monitor/stress-db`). Health check at `GET /api/health`.
 - **Scheduler**: single instance only; overlap guard + `FOR UPDATE SKIP LOCKED` in transaction; `SCHEDULER_CHUNK_SIZE` default 50 (not 100).
@@ -104,5 +107,6 @@ Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`.
 | HSM payload build | `src/services/whatsapp/utils/content_utility.js` |
 | DB pool | `src/config/database.js` |
 | Concurrency | `src/helpers/concurrency.js` |
-| Payload normalize | `src/helpers/failed_message.js` |
+| Forward / Salesforce | `src/services/salesforce/salesforce_forward.js` |
+| Redis cache | `src/config/redis.js` |
 | Constants | `src/config/constants.js` |
