@@ -127,7 +127,7 @@ class DamcorpService {
                 resData,
             });
         } catch (error) {
-            console.error('Damcorp forward failed:', error.message);
+            console.error('Failed forward to Salesforce:', error.message);
         }
     }
 
