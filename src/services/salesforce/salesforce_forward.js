@@ -216,6 +216,7 @@ const forwardTo = async ({ integration, request, phone, resData }) => {
     const appId = Number(request?.app_id);
     if (!isSalesforceApp(appId)) return null;
 
+    console.log('forwardTo Salesforce => ', { phone });
     return sendApiSalesForce({
         appId,
         request,
