@@ -65,6 +65,7 @@ There are **two different JSON shapes** — don't confuse them:
 - body → `{ type: "body", parameters: [{ type: "text", text }] }`
 - button → `{ type: "button", sub_type, index: <number>, parameters: [...] }`
 - **quick_reply button param MUST be `{ type: "payload", payload: "..." }`** — never `type: "quick_reply"` or `type: "text"`. Meta rejects it with error #100 `enum` violation.
+- Prefer `template.cards` when `template.components` / `carousel_cards` only contain HEADER (producer prebuild). Incomplete cards make Meta reject carousel (missing body/button).
 - Strip the `format` key from card components (Meta error #100 "Unexpected key format").
 
 Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`. Both call `sendBroadcast()` and `saveBroadcastMessage()` from `repositories/broadcast_repository.js`.
@@ -94,7 +95,7 @@ Providers: `one_engage_service.js` (default `1engage`) and `damcorp_service.js`.
 
 - PM2: `ecosystem.config.js` — instances tunable via `PM2_QUEUE_INSTANCES`, `PM2_FAILED_QUEUE_INSTANCES`. Restart: `pm2 restart ecosystem.config.js --env production`.
 - Docker: `Dockerfile` runs `pm2-runtime start ecosystem.config.js --env production`.
-- CI: `.github/workflows/deploy-sandbox.yml` on `staging`; `deploy-production.yml` on `production`.
+- CI: `.github/workflows/deploy-sandbox.yml` on `staging` (Dokploy webhook); `deploy-production.yml` on `production` (GHCR image + SSH `git pull` / `pm2 restart ecosystem.config.js --env production`). Needs secrets `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_APP_DIR`.
 
 ## Key files
 

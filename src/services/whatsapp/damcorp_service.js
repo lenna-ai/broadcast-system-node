@@ -110,8 +110,6 @@ class DamcorpService {
 
         await saveBroadcastMessage(request, resData, payload, trx);
 
-        await this.safeForward(request, phone, resData, response);
-
         return resData;
     }
 

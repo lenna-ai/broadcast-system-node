@@ -119,6 +119,84 @@ describe('content_utility carousel', () => {
         expect(cardBody.parameters).toEqual([]);
     });
 
+    it('falls back to template.cards when components only include carousel headers', () => {
+        const request = {
+            params_data: [],
+            template: {
+                type: 'carousel',
+                components: [{
+                    type: 'CAROUSEL',
+                    cards: [{
+                        card_index: 0,
+                        components: [{
+                            type: 'HEADER',
+                            format: 'IMAGE',
+                            parameters: [{ type: 'image', image: { link: 'https://example.com/1.jpg' } }],
+                        }],
+                    }, {
+                        card_index: 1,
+                        components: [{
+                            type: 'HEADER',
+                            format: 'IMAGE',
+                            parameters: [{ type: 'image', image: { link: 'https://example.com/2.jpg' } }],
+                        }],
+                    }],
+                }],
+                cards: [{
+                    components: [
+                        { type: 'HEADER', format: 'IMAGE', mediaUrl: 'https://example.com/1.jpg' },
+                        { type: 'BODY', text: 'Test Carousel 1' },
+                        { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Keyword 1' }] },
+                    ],
+                    params: [],
+                    media_url: 'https://example.com/1.jpg',
+                    index: 0,
+                }, {
+                    components: [
+                        { type: 'HEADER', format: 'IMAGE', mediaUrl: 'https://example.com/2.jpg' },
+                        { type: 'BODY', text: 'Test Carousel 2' },
+                        { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Keyword 2' }] },
+                    ],
+                    params: [],
+                    media_url: 'https://example.com/2.jpg',
+                    index: 1,
+                }],
+            },
+            carousel_cards: [{
+                card_index: 0,
+                components: [{
+                    type: 'HEADER',
+                    format: 'IMAGE',
+                    parameters: [{ type: 'image', image: { link: 'https://example.com/1.jpg' } }],
+                }],
+            }],
+        };
+
+        const { resolveCarouselCards, getContentProvider: getContent } = require('../src/services/whatsapp/utils/content_utility');
+        const resolvedCards = resolveCarouselCards(request, request.params_data);
+        expect(resolvedCards[0].components.some((c) => (c.type || '').toUpperCase() === 'BODY')).toBe(true);
+        expect(resolvedCards[0].components.some((c) => (c.type || '').toUpperCase() === 'BUTTONS')).toBe(true);
+
+        const output = getContent('damcorp', {
+            params: request.params_data,
+            header: [],
+            carousel_cards: resolvedCards,
+        });
+        expect(output.some((c) => c.type === 'body')).toBe(false);
+
+        const carousel = output.find((c) => c.type === 'carousel');
+        const card = carousel.cards[0];
+        expect(card.components.find((c) => c.type === 'header').parameters[0].image.link).toBe('https://example.com/1.jpg');
+        expect(card.components.find((c) => c.type === 'body').parameters).toEqual([]);
+        expect(card.components.find((c) => c.sub_type === 'quick_reply')).toEqual({
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: 0,
+            parameters: [{ type: 'payload', payload: 'Keyword 1' }],
+        });
+        expect(JSON.stringify(card.components).includes('"format"')).toBe(false);
+    });
+
     it('prefers template.components carousel cards with ready-to-send body params', () => {
         const { resolveCarouselCards, getContentProvider: getContent } = require('../src/services/whatsapp/utils/content_utility');
 

@@ -72,8 +72,42 @@ const extractCarouselCardsFromComponents = (components) => {
     return null;
 };
 
+const normalizeCarouselComponentType = (type) => {
+    const normalized = (type || '').toLowerCase();
+    if (normalized === 'buttons') return 'button';
+    return normalized;
+};
+
+const carouselCardComponentTypes = (card) => {
+    const types = new Set();
+    for (const component of card?.components || []) {
+        const type = normalizeCarouselComponentType(component?.type);
+        if (type) types.add(type);
+    }
+    return types;
+};
+
+const isCompleteCarouselCard = (card, templateCard) => {
+    if (!card?.components?.length) return false;
+    if (!templateCard?.components?.length) return true;
+
+    const required = carouselCardComponentTypes(templateCard);
+    const actual = carouselCardComponentTypes(card);
+    for (const type of required) {
+        if (!actual.has(type)) return false;
+    }
+    return true;
+};
+
+const cardsMatchTemplate = (cards, templateCards) => {
+    if (!cards?.length) return false;
+    if (!templateCards?.length) return true;
+    return cards.every((card, index) => isCompleteCarouselCard(card, templateCards[index] || templateCards[0]));
+};
+
 const resolveCarouselCards = (request, paramsData = null) => {
     const cardParamsList = Array.isArray(paramsData?.cards) ? paramsData.cards : null;
+    const templateCards = Array.isArray(request?.template?.cards) ? request.template.cards : [];
 
     const enrichCard = (card, index) => ({
         ...card,
@@ -85,16 +119,19 @@ const resolveCarouselCards = (request, paramsData = null) => {
 
     const fromComponents = extractCarouselCardsFromComponents(request?.components)
         || extractCarouselCardsFromComponents(request?.template?.components);
+    const fromRequestCarousel = Array.isArray(request?.carousel_cards) && request.carousel_cards.length
+        ? request.carousel_cards
+        : null;
 
-    if (fromComponents?.length) {
-        return fromComponents.map((card, index) => enrichCard(card, index));
+    const candidates = [fromComponents, fromRequestCarousel].filter((cards) => cards?.length);
+
+    for (const cards of candidates) {
+        if (cardsMatchTemplate(cards, templateCards)) {
+            return cards.map((card, index) => enrichCard(card, index));
+        }
     }
 
-    if (Array.isArray(request?.carousel_cards) && request.carousel_cards.length) {
-        return request.carousel_cards.map((card, index) => enrichCard(card, index));
-    }
-
-    return (request?.template?.cards || []).map((card, index) => enrichCard(card, index));
+    return templateCards.map((card, index) => enrichCard(card, index));
 };
 
 const PLACEHOLDER_REGEX = /\{\{\d+\}\}/g;
@@ -341,17 +378,18 @@ const getContentProvider = (type, optional) => {
 const oneEngageContent = (optional) => {
     const content = [];
 
-    // SET DYNAMIC PARAMS
-    const body = setDynamicParams(optional);
-    content.push(body);
-    
     const header = optional['header'];
-    // GET HEADER TYPE
     let headerType = header?.headerType || null;
     let headerContent = null;
 
     if (optional && optional['carousel_cards'] && Array.isArray(optional['carousel_cards'])) {
         headerType = 'carousel';
+    }
+
+    const body = setDynamicParams(optional);
+    const omitEmptyCarouselBody = headerType === 'carousel' && !(optional.params || []).length;
+    if (!omitEmptyCarouselBody) {
+        content.push(body);
     }
 
     // GET HEADER CONTENT
@@ -451,14 +489,18 @@ const oneEngageContent = (optional) => {
 const damcorpContent = (optional) => {
     const content = [];
 
-    const body = setDynamicParams(optional);
-    content.push(body);
     const header = optional['header'] || null;
     let headerType = header?.headerType || null;
     let headerContent = null;
 
     if (optional?.carousel_cards?.length) {
         headerType = 'carousel';
+    }
+
+    const body = setDynamicParams(optional);
+    const omitEmptyCarouselBody = headerType === 'carousel' && !(optional.params || []).length;
+    if (!omitEmptyCarouselBody) {
+        content.push(body);
     }
 
     if (header && headerType && headerType !== 'carousel') {

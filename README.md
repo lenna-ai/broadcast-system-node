@@ -335,6 +335,16 @@ npm test
 
 Image Docker di-push ke GitHub Container Registry (`ghcr.io`).
 
+Production juga SSH ke VM lalu:
+
+```bash
+sudo git pull origin production
+sudo npm install --omit=dev
+sudo pm2 restart ecosystem.config.js --env production
+```
+
+Secret GitHub yang harus diisi: `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_APP_DIR`.
+
 ## Kapasitas & Server Spec
 
 Untuk blast **puluhan ribu pesan**, baca panduan lengkap:

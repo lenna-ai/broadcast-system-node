@@ -212,11 +212,11 @@ const sendApiSalesForce = async ({ appId, request, phone, resData, sendBy }) => 
 
 const forwardTo = async ({ integration, request, phone, resData }) => {
     if (!shouldForward(integration)) return null;
+    if (resData?.status !== 'sent') return null;
 
     const appId = Number(request?.app_id);
     if (!isSalesforceApp(appId)) return null;
 
-    console.log('forwardTo Salesforce => ', { phone });
     return sendApiSalesForce({
         appId,
         request,
