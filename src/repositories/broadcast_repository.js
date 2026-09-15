@@ -13,6 +13,25 @@ const previewResponseBody = (body, maxLength = 200) => {
     return text.replace(/\s+/g, ' ').trim().slice(0, maxLength);
 };
 
+const parseJsonObject = (value) => {
+    if (!value) return {};
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) return value;
+    return {};
+};
+
+const mergeBroadcastMessageData = (resData, channelData) => ({
+    ...parseJsonObject(channelData),
+    ...(resData && typeof resData === 'object' ? resData : {}),
+});
+
 const sendBroadcast = async (method, endpoint, options) => {
     try {
         const httpMethod = (method || 'post').toLowerCase();
@@ -45,7 +64,11 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
 
     const insertData = {
         channel_id: channelId,
-        channel_data: request.channel_data ? JSON.stringify(request.channel_data) : null,
+        channel_data: request.channel_data
+            ? (typeof request.channel_data === 'string'
+                ? request.channel_data
+                : JSON.stringify(request.channel_data))
+            : null,
         type: 'broadcast',
         category: 'hsm',
         client,
@@ -54,7 +77,7 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
         integration_id: request.integration_id,
         status: resData.status,
         number: resData.to,
-        data: JSON.stringify(resData),
+        data: JSON.stringify(mergeBroadcastMessageData(resData, request.channel_data)),
         body: JSON.stringify(payload),
         channel_message_id: resData.msgId,
         send_by: request.sent_by,
@@ -78,4 +101,5 @@ const saveBroadcastMessage = async (request, resData, payload, trx = null) => {
 module.exports = {
     sendBroadcast,
     saveBroadcastMessage,
+    mergeBroadcastMessageData,
 };

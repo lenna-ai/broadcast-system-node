@@ -13,7 +13,7 @@ Layanan broadcast WhatsApp HSM (High Structured Message) berbasis Node.js, Expre
 - Provider WhatsApp: **1engage** dan **Damcorp**
 - Dukungan template carousel WhatsApp
 - Health check & monitoring metrics
-- Simpan `channel_data` per pesan di `broadcast_messages`
+- Simpan `channel_data` per pesan di `broadcast_messages` (kolom `channel_data`, dan di-merge ke kolom `data`)
 
 ## Arsitektur
 
